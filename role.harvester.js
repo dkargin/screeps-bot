@@ -13,7 +13,7 @@ var AIState =
     MoveBuild: 10, 
     Building: 11,
 }
-    
+
 class Harvester 
 {
     constructor() 

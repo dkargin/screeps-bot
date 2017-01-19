@@ -32,29 +32,33 @@ function build_path(from, to)
     }
 }
 
+
 var controllers = 
 { 
     harvester : require('role.harvester'),
     upgrader : require('role.upgrader'),
 }
 
-module.exports.loop = function () 
+run_tower = function(tower)
 {
-    /*
-    var tower = Game.getObjectById('fdd0e35d4c21be22c3e8ba82');
-    if(tower) {
+    //console.log("Updating tower "+ tower)
+    var closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+    if(closestHostile) {
+        tower.attack(closestHostile);
+    }
+    else
+    {
         var closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
             filter: (structure) => structure.hits < structure.hitsMax
         });
         if(closestDamagedStructure) {
             tower.repair(closestDamagedStructure);
         }
+    }
+}
 
-        var closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-        if(closestHostile) {
-            tower.attack(closestHostile);
-        }
-    }*/
+module.exports.loop = function () 
+{
     
     for(var i in Memory.creeps) {
         if(!Game.creeps[i]) {
@@ -65,11 +69,28 @@ module.exports.loop = function ()
     for(var u in controllers) {
         controllers[u].start_turn()
     }
+    
+    for(var r in Game.rooms)
+    {
+        var room = Game.rooms[r]
+        var towers = room.find(FIND_MY_STRUCTURES, {filter: {structureType: STRUCTURE_TOWER}});
+        for (let towerName in towers) 
+        { 
+            var tower = towers[towerName]; 
+            run_tower(tower)
+            //let creepsInRoom = tower.room.find(FIND_HOSTILE_CREEPS); 
+            //console.log("TOWERS FOUND: " + towers); 
+        }    
+    }
+    
 
     for(var name in Game.creeps) 
     {
         var creep = Game.creeps[name];
         var role = creep.memory.role;
+        
+        if(!creep.my)
+            continue
         
         if(creep.memory.role in controllers)
             controllers[role].run(creep)

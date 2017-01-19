@@ -72,9 +72,10 @@ class Upgrader
             //var storages = creep.room.find(FIND_STRUCTURES)
             var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                 filter: (structure) => {
-                    if(structure.structureType == STRUCTURE_CONTAINER)
+                    /*if(structure.structureType == STRUCTURE_CONTAINER)
                         return structure.store[RESOURCE_ENERGY] > 0;
-                    return (structure.energy > 0) && (structure.energyCapacity > 400);
+                    return (structure.energy > 0) && (structure.energyCapacity > 400);*/
+                    return structure.structureType == STRUCTURE_CONTAINER && structure.store[RESOURCE_ENERGY] > 0;
                 }
                 });
                 /*  == STRUCTURE_EXTENSION ||
@@ -84,7 +85,7 @@ class Upgrader
             if(target)
             {
                 //if(creep.withdraw(target) == ERR_NOT_IN_RANGE)
-                if(target.transfer(creep, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
+                if(creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
                 {
                     creep.moveTo(target)
                 }
@@ -95,12 +96,27 @@ class Upgrader
             }
             else
             {
+                var energy = creep.pos.findClosestByPath(FIND_DROPPED_ENERGY);
+        
+                if (energy) 
+                {
+                    console.log('found ' + energy.energy + ' energy at ', energy.pos);
+                    creep.pickup(energy);
+                    if(creep.pickup(energy) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(energy);
+                    }
+                }
+            }
+            /// Never mine personally, harvesters do this job
+            /*
+            else
+            {
                 console.log("No storage - going to mine personally")
                 var sources = creep.room.find(FIND_SOURCES);
                 if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
                     creep.moveTo(sources[0]);
                 }
-            }
+            }*/
         }
 	}
 }
