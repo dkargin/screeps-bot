@@ -85,13 +85,13 @@ class Upgrader
             if(target)
             {
                 //if(creep.withdraw(target) == ERR_NOT_IN_RANGE)
-                if(creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
+                if(target.transfer(creep, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
                 {
                     creep.moveTo(target)
                 }
                 else
                 {
-                    console.log("Upgrading from store "+target)
+                   // console.log("Upgrading from store "+target)
                 }
             }
             else
@@ -100,7 +100,7 @@ class Upgrader
         
                 if (energy) 
                 {
-                    console.log('found ' + energy.energy + ' energy at ', energy.pos);
+                    //console.log('found ' + energy.energy + ' energy at ', energy.pos);
                     creep.pickup(energy);
                     if(creep.pickup(energy) == ERR_NOT_IN_RANGE) {
                         creep.moveTo(energy);

@@ -12,6 +12,29 @@ var AIState =
     SearchDump : 9, 
     MoveBuild: 10, 
     Building: 11,
+    MoveRecycle: 12,    /// Return to be recycled
+}
+
+// Recipes for heavy drill
+//
+var recipes_drill = {
+    worker_mk1: [WORK, WORK, CARRY, MOVE],                          // 300
+    worker_mk2: [WORK, WORK, WORK, CARRY, MOVE],                    // 400
+    worker_mk3: [WORK, WORK, WORK, WORK, CARRY, MOVE],              // 500
+    worker_mk4: [WORK, WORK, WORK, WORK, WORK, CARRY, MOVE],        // 600
+}
+
+class Spawner
+{
+    constructor()
+    {
+        
+    }
+    
+    process_spawn(source)
+    {
+        
+    }
 }
 
 class Harvester 
@@ -43,12 +66,16 @@ class Harvester
         {
             var mine = sources[i]
             
+            var tmp = mine.memory
+            
             if(mine.id in Memory.mine_info)
                continue;
             //if(!('user' in Memory.mine_info))
             //    Memory.mine_info.user = {}
             var path = pos.findPathTo(mine.pos)
             var distance = path.length
+            
+            
             
             
             var spots = []
@@ -63,9 +90,20 @@ class Harvester
                             continue;
                         var spot_pos = new RoomPosition(x,y, mine.pos.roomName)
                         var tile = Game.map.getTerrainAt(spot_pos)
-                        
+
                         if(tile != 'wall')
+                        {
                             spots.push(spot_pos)
+                            var res = mine.room.createFlag(spot_pos, "Minespot_"+x+":"+y)
+                            if(res == ERR_NAME_EXISTS)
+                            {
+                                
+                            }
+                            else
+                            {
+                                console.log("Created mine spot flag")
+                            }
+                        }
                     }
                 max = spots.length
             }
@@ -79,13 +117,14 @@ class Harvester
             }   
             
             Memory.mine_info[mine.id] = info
+            
         }
         
         var total_harvesters = 0
         for(var i in Memory.mine_info)
         {
             var info = Memory.mine_info[i]
-            var harvesters_per_mine = info.max + Math.round(info.distance / 6);
+            var harvesters_per_mine = info.max + Math.round(info.distance / 4);
             //console.log("Mine "+i+" needs "+harvesters_per_mine+" harvesters")
             total_harvesters = total_harvesters+ harvesters_per_mine
         }
@@ -219,10 +258,15 @@ class Harvester
     /** @param {Creep} creep- user of selected mine **/
     free_mine(spot, creep)
     {
+        if(!Memory.mine_info)
+            return
         var info = Memory.mine_info[spot]
         if(!info)
+        {
             console.log("Invalid mine id="+spot)
-        if(info.current > 0)
+            return
+        }
+        if(info.current >  0)
         {
             info.current--;
         }
@@ -279,6 +323,55 @@ class Harvester
                 creep.memory.target = mine.id 
                 creep.say("Remi!")
             }
+        }
+    }
+    
+    /** @param {Creep} creep **/
+    /// Sticks to mining spot and drills forever
+    process_longdrill(creep)
+    {
+        //console.log("Creep="+creep.name+" is mining")
+        var target = Game.getObjectById(creep.memory.target)
+        if(creep.carry.energy < creep.carryCapacity) 
+	    {
+	        
+	        if(!target)
+	        {
+	            console.log(creep.name + " has lost mining target:"+creep.memory.target)
+	            creep.memory.state = AIState.SearchMine;
+	            creep.memory.target = 0
+                creep.say("Neeta") // need target
+                return
+	        }
+	        
+            //var sources = creep.room.find(FIND_SOURCES);
+            var res = creep.harvest(target)
+            if(res == ERR_NOT_IN_RANGE) 
+            {
+                creep.memory.state = AIState.SearchMine;
+                this.free_mine(target.id, creep)
+                creep.memory.target = 0
+                creep.say("Neeta") // need target
+            }
+            else if(res == OK)
+            {
+                // OK
+            }
+            else
+            {
+                console.log(creep.name + " has lost mining target:"+res)
+                creep.memory.state = AIState.SearchMine;
+                this.free_mine(target.id, creep)
+                creep.memory.target = 0
+                creep.say("Neeta") // need target
+            }
+        }
+        else
+        {
+             creep.say("Complete")
+             this.free_mine(target.id, creep)
+             creep.memory.target = 0;
+             creep.memory.state = AIState.SearchDump;
         }
     }
     /** @param {Creep} creep **/

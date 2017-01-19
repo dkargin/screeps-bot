@@ -32,6 +32,26 @@ function build_path(from, to)
     }
 }
 
+Object.defineProperty(Source.prototype, 'memory', {
+    get: function() {
+        if(_.isUndefined(Memory.sources)) {
+            Memory.sources = {};
+        }
+        if(!_.isObject(Memory.sources)) {
+            return undefined;
+        }
+        return Memory.sources[this.id] = Memory.sources[this.id] || {};
+    },
+    set: function(value) {
+        if(_.isUndefined(Memory.sources)) {
+            Memory.sources = {};
+        }
+        if(!_.isObject(Memory.sources)) {
+            throw new Error('Could not set source memory');
+        }
+        Memory.sources[this.id] = value;
+    }
+});
 
 var controllers = 
 { 
@@ -48,11 +68,12 @@ run_tower = function(tower)
     }
     else
     {
-        var closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-            filter: (structure) => structure.hits < structure.hitsMax
+        var closestDamagedStructure = tower.room.find(FIND_STRUCTURES, {
+            //filter: (structure) => structure.hits < structure.hitsMax
+            filter: (structure) => structure.hits < 10000 
         });
-        if(closestDamagedStructure) {
-            tower.repair(closestDamagedStructure);
+        if(closestDamagedStructure.length > 0) {
+            tower.repair(closestDamagedStructure[0]);
         }
     }
 }
