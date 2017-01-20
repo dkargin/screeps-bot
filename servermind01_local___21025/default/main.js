@@ -32,6 +32,11 @@ function build_path(from, to)
     }
 }
 
+Spawn.prototype.test = function() {
+    console.log("Hello world");
+}
+
+/*
 Object.defineProperty(Source.prototype, 'memory', {
     get: function() {
         if(_.isUndefined(Memory.sources)) {
@@ -52,6 +57,9 @@ Object.defineProperty(Source.prototype, 'memory', {
         Memory.sources[this.id] = value;
     }
 });
+*/
+
+HoP = require('spawner')
 
 var controllers = 
 { 
@@ -78,8 +86,16 @@ run_tower = function(tower)
     }
 }
 
+var firstTick = true
+
 module.exports.loop = function () 
 {
+    
+    if(firstTick)
+    {
+        firstTick = false;
+        controllers.harvester.init_recipes(HoP)
+    }
     
     for(var i in Memory.creeps) {
         if(!Game.creeps[i]) {
@@ -94,6 +110,8 @@ module.exports.loop = function ()
     for(var r in Game.rooms)
     {
         var room = Game.rooms[r]
+        HoP.administer_room(room)
+        /// Do the towers
         var towers = room.find(FIND_MY_STRUCTURES, {filter: {structureType: STRUCTURE_TOWER}});
         for (let towerName in towers) 
         { 
@@ -104,6 +122,8 @@ module.exports.loop = function ()
         }    
     }
     
+    
+    /*
 
     for(var name in Game.creeps) 
     {
@@ -115,15 +135,12 @@ module.exports.loop = function ()
         
         if(creep.memory.role in controllers)
             controllers[role].run(creep)
-    }
+    }*/
     
-    var spawn = Game.spawns['Spawn1']
+    
+    for(var s in Game.spawns)
     {
-        for(var i in controllers)
-        {
-            controllers[i].check_spawn(spawn)
-        }
-        /*
+        var spawn = Game.spawns[s]    
         if(!spawn.spawning)
         {
             var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1)
@@ -133,9 +150,17 @@ module.exports.loop = function ()
                 for(var i in targets)
                     spawn.renewCreep(targets[i])
             }
-        }*/
+        }
+    }
+        /*
+    {
+        for(var i in controllers)
+        {
+            controllers[i].check_spawn(spawn)
+        }
+        
+        
         
         build(spawn, STRUCTURE_EXTENSION);
-    }
-    
+    }*/
 }

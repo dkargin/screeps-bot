@@ -31,7 +31,6 @@ class Upgrader
                 break
             }
         }
-        //console.log("Best="+best+" cost = "+this.get_recipe_cost(recipes[i])+" max="+spawn.energyCapacity)
         return best
     }
     

@@ -18,23 +18,28 @@ var AIState =
 // Recipes for heavy drill
 //
 var recipes_drill = {
-    worker_mk1: [WORK, WORK, CARRY, MOVE],                          // 300
-    worker_mk2: [WORK, WORK, WORK, CARRY, MOVE],                    // 400
-    worker_mk3: [WORK, WORK, WORK, WORK, CARRY, MOVE],              // 500
-    worker_mk4: [WORK, WORK, WORK, WORK, WORK, CARRY, MOVE],        // 600
+    worker_mk1: {WORK:2, CARRY:1, MOVE:1},                                  // 300
+    worker_mk2: {WORK:3, CARRY:1, MOVE:1},                                  // 400
+    worker_mk3: {WORK:4, CARRY:1, MOVE:1},                                  // 500
+    worker_mk4: {WORK:5, CARRY:1, MOVE:1},                                  // 600
+    worker_mk5: {WORK:6, CARRY:1, MOVE:1},                                  // 700
+    worker_mk6: {WORK:7, CARRY:1, MOVE:1},                                  // 800
+    worker_mk7: {WORK:8, CARRY:1, MOVE:1},                                  // 900
 }
 
-class Spawner
+var recipes_mover = 
 {
-    constructor()
-    {
-        
-    }
-    
-    process_spawn(source)
-    {
-        
-    }
+    mover_mk1: {CARRY:1, MOVE:1}
+}
+
+init_drill = function(creep)
+{
+    creep.memory.role = "harvester"
+}
+
+init_mover = function(creep)
+{
+    creep.memory.mover = "mover"
 }
 
 class Harvester 
@@ -49,11 +54,21 @@ class Harvester
         this.role = 'harvester'
         Memory.need_harvesters = 1
         Memory.last_harvester = 0
+        
         if(!('mine_info' in Memory))
         {
             Memory.mine_info = {}
         }
         
+        for(var i in Game.spawns)
+            this.analyse_mines(Game.spawns[i])
+    }
+    
+    init_recipes(HoP)
+    {
+        console.log("Initializing recipes for Harvester class")
+        HoP.memorize_recipe_simple("miner", recipes_drill, init_drill)
+        HoP.memorize_recipe_simple("mover", recipes_mover, init_mover)
     }
     
     /** Will find and fill in mining spots **/
@@ -61,6 +76,7 @@ class Harvester
     {
         //console.log("Updating mine info")
         var sources = spawn.room.find(FIND_SOURCES);
+        
         var pos = spawn.pos
         for(var i in sources)
         {
@@ -74,9 +90,6 @@ class Harvester
             //    Memory.mine_info.user = {}
             var path = pos.findPathTo(mine.pos)
             var distance = path.length
-            
-            
-            
             
             var spots = []
             var max = 0
@@ -196,8 +209,6 @@ class Harvester
                 break
             }
         }
-        
-        this.analyse_mines(spawn)
     }
     
     
@@ -214,9 +225,9 @@ class Harvester
         // spawn.getM
         var recipes = 
         [
-            [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE],
+            /*[WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE],
             [WORK, WORK, CARRY, CARRY, MOVE, MOVE],
-            [WORK, WORK, CARRY, CARRY, MOVE],
+            [WORK, WORK, CARRY, CARRY, MOVE],*/
             [WORK, CARRY, CARRY, MOVE],
         ]
         var best = recipes[0]
@@ -246,11 +257,7 @@ class Harvester
             creep.memory.state = AIState.Idle
             creep.memory.target = 0 // Current target id
             creep.memory.spot = 0   // Mining spot index
-            
-            if(creep.getActiveBodyparts()) 
-            {}
         }
-        
     }
     
     // Free spot and allow it to be used by other harvesters
