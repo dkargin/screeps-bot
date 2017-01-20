@@ -143,7 +143,7 @@ class RecipeHelper
 
     get_population()
     {
-        return this.get_info().population
+        return this.get_info().population.length
     }
 
     /// Get index of last created creep
@@ -280,6 +280,11 @@ class HoP
             console.log(this.memory.spawn_queue)
         }
 
+        Room.prototype.population = function(recipe)
+        {
+            return controller.population(recipe)
+        }
+
         Spawn.prototype.print_queue = function()
         {
             console.log(this.room.memory.spawn_queue)
@@ -320,6 +325,15 @@ class HoP
             return source.memory.queue.length
     }
 
+    population(recipe)
+    {
+        if(!this.helpers[recipe])
+            return 0
+        var helper = this.helpers[recipe]
+
+        return helper.get_population()
+    }
+
     /// Enqueue recipe
     /// @param room - selected room
     /// @param recipe - recipe name
@@ -352,6 +366,10 @@ class HoP
             room.memory.spawn_queue = []
         }
         
+        for(var h in this.helpers)
+        {
+            this.helpers[h].check_population()
+        }
         /// Check if spawn queue is empty
         if(room.memory.spawn_queue.length == 0)
         {
@@ -441,7 +459,7 @@ class HoP
                 console.log("Spawned design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
                 /// Really created a creep
                 var creep = Game.creeps[result]
-                helper.initializer(creep)
+                //helper.initializer(creep)
                 helper.creep_created(creep, desc)
                 room.memory.spawn_queue.pop()
             }

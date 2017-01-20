@@ -27,6 +27,11 @@ init_mover = function(creep_memory)
     creep_memory.mover = "mover"
 }
 
+Room.prototype.has_movers = function()
+{
+    
+}
+
 class Harvester 
 {
     constructor() 

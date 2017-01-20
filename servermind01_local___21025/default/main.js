@@ -95,6 +95,7 @@ module.exports.loop = function ()
     {
         firstTick = false;
         controllers.harvester.init_recipes(HoP)
+        controllers.upgrader.init_recipes(HoP)
     }
     
     for(var i in Memory.creeps) {

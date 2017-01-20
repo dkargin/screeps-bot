@@ -1,4 +1,10 @@
 
+init_upgrader = function(creep_memory)
+{
+    console.log("Initializing upgrader system for")
+    creep_memory.role = "upgrader"
+}
+
 class Upgrader
 {
     constructor() 
@@ -10,28 +16,15 @@ class Upgrader
             Memory.last_upgrader = 0
     }
     
-    /** @param {StructureSpawn} spawn **/
-    get_best_recipe(spawn)
+    init_recipes(HoP)
     {
-        // spawn.getM
-        var recipes = 
-        [
-            [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE],
-            [WORK, WORK, CARRY, CARRY, MOVE, MOVE],
-            [WORK, WORK, CARRY, CARRY, MOVE],
-            [WORK, CARRY, CARRY, MOVE],
-        ]
-        var best = recipes[0]
-        for(var i in recipes)
-        {
-            var cost = this.get_recipe_cost(recipes[i])
-            if(spawn.canCreateCreep(recipes[i]) == OK)
-            {
-                best = recipes[i]
-                break
-            }
+        // Recipes for heavy drill
+        //
+        var recipes_upgrader = {
+            upgrader_mk1: {work:1, carry:2, move:2},                                  // 300
         }
-        return best
+        console.log("Initializing recipes for Harvester class")
+        HoP.memorize_recipe_simple("upgrader", recipes_upgrader, init_upgrader)
     }
     
     start_turn()
@@ -74,7 +67,7 @@ class Upgrader
                     return structure.structureType == STRUCTURE_CONTAINER && structure.store[RESOURCE_ENERGY] > 0;
                 }
                 });
-            
+
             if(target)
             {
                 //if(creep.withdraw(target) == ERR_NOT_IN_RANGE)
