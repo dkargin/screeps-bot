@@ -210,39 +210,6 @@ class Harvester
         }
     }
     
-    
-    get_recipe_cost(body)
-    {
-        return body.reduce(function (cost, part) 
-        {
-            return cost + BODYPART_COST[part];
-        }, 0);
-    }
-    /** @param {StructureSpawn} spawn **/
-    get_best_recipe(spawn)
-    {
-        // spawn.getM
-        var recipes = 
-        [
-            /*[WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE],
-            [WORK, WORK, CARRY, CARRY, MOVE, MOVE],
-            [WORK, WORK, CARRY, CARRY, MOVE],*/
-            [WORK, CARRY, CARRY, MOVE],
-        ]
-        var best = recipes[0]
-        for(var i in recipes)
-        {
-            var cost = this.get_recipe_cost(recipes[i])
-            if(spawn.canCreateCreep(recipes[i]) == OK)
-            {
-                best = recipes[i]
-                break
-            }
-        }
-        //console.log("Best="+best+" cost = "+this.get_recipe_cost(recipes[i])+" max="+spawn.energyCapacity)
-        return best
-    }
-    
     /** @param {Creep} creep **/
     own(creep)
     {

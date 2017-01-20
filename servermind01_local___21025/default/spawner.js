@@ -90,6 +90,22 @@ make_simple_generator = function(name, bp)
     };
 }
 
+Creep.prototype.recycle = function()
+{
+    //this.pos.
+    var targets = this.room.find(FIND_STRUCTURES, {
+        filter: (structure) => {
+            return structure.structureType == STRUCTURE_SPAWN
+        }   
+    });
+    if(targets.length > 0)
+    {
+        if(targets[0].recycleCreep(this) == ERR_NOT_IN_RANGE)
+        {
+            this.moveTo(targets[0])
+        }
+    }
+}
 /// Wraps up recipe call
 /// We need to keep:
 ///  - total recipe population
@@ -108,14 +124,16 @@ class RecipeHelper
         if(!Memory.recipe_info[name])
         {
             Memory.recipe_info[name] = {}
+            var info = Memory.recipe_info[name]
+            info.population = []
+            info.population.free_index = []
+            info.priority = 1
+            info.required = 0
+            info.last_created = 0
         }
-        
-        var info = Memory.recipe_info[name]
-        
-        info.population = []
-        info.priority = 1
-        info.required = 0
-        info.last_created = 0
+
+        if(!Memory.recipe_info[name].free_index)
+            Memory.recipe_info[name].free_index = []
     }
 
     get_info()
@@ -137,34 +155,42 @@ class RecipeHelper
     /// Called by HoP when creep is created
     creep_created(uid, desc)
     {
+        console.log("Initializing creep data for "+uid)
         var info = this.get_info()
         var creep = Game.creeps[uid]
+        creep.memory = {}
         creep.memory.recipe = this.name
         creep.memory.recipe_rev = desc.name
-        info.last_created ++
+        if(!desc.reused_index)
+            info.last_created ++
+        creep.memory.index = info.last_created
         info.population.push(uid)
+
+        this.initializer(creep)
     }
 
-    /// Generates best recipe available for specified room
+    /// Generates best recipe available for specified cost limit
     /// @returns dictionary with fields: {name, blueprint, unique_name}
     ///  - name - blueprint name
     ///  - blueprint - body description
     ///  - unique_name - unique name for a creep
-    get_best_recipe(room, blueprint)
+    get_best_recipe(cost_limit)
     {
-        
-        var helper = this.helpers[blueprint]
-        if(!helper)
-        {
-            console.log("Picking best recipe for blueprint"+blueprint+" .. no such blueprint")
-            return "norecipe", []
-        }
+        //console.log("Picking best recipe for blueprint="+this.name)
         var info = this.get_info()
-        //console.log("Picking best recipe for blueprint="+blueprint)
-        var cost_limit = room.energyCapacityAvailable
-        var result = helper.generator(cost_limit)
-        result['unique_name'] = result.name + "#" + (info.last_created+1)
-        
+        var result = this.generator(cost_limit)
+        var new_index = info.last_created+1
+
+        result.reused_index = false
+
+        if(info.free_index.length > 0)
+        {
+            new_index = info.free_index.pop()
+            result.reused_index = true
+        }
+
+        result.unique_name = result.name + "#" + (info.last_created+1)
+
         return result 
     }
 
@@ -193,7 +219,20 @@ class RecipeHelper
         if(dead.length > 0)
         {
             console.log("Found dead creeps:" + dead)
+            for(var i in dead)
+            {
+                info.free_index.push(dead[i])
+            }
         }
+    }
+
+    /// Add creep name to population
+    /// Used in case of name collision
+    add_name(name)
+    {
+        var info = this.get_info()
+        info.population.push(name)
+        info.last_created++
     }
 }
 
@@ -340,7 +379,7 @@ class HoP
         }
         //console.log("Picking best recipe for blueprint="+blueprint)
         
-        return helper.generator(room.energyCapacityAvailable) 
+        return helper.get_best_recipe(room.energyCapacityAvailable) 
     }
     
     /// Run spawner updating process
@@ -368,8 +407,8 @@ class HoP
             return
         }
 
-        //console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
-
+        
+        console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
         var test_result = spawn.canCreateCreep(desc.blueprint, desc.unique_name)
 
         switch(test_result)
@@ -381,7 +420,8 @@ class HoP
             //console.log("Not enough energy for "+name)
             break;
         case ERR_NAME_EXISTS:
-            console.log("Name "+ new_name + " already exists")
+            console.log("Name "+ desc.unique_name + " already exists")
+            helper.add_name(desc.unique_name)
             break
         case ERR_INVALID_ARGS:
             console.log("Invalid recipe body " + name)
@@ -390,6 +430,7 @@ class HoP
 
         if(test_result == OK)
         {
+            console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
             var result = spawn.createCreep(desc.blueprint, desc.unique_name)
             if(_.isString(result)) 
             {   
