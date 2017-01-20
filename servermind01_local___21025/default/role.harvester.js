@@ -15,14 +15,16 @@ var AIState =
     MoveRecycle: 12,    /// Return to be recycled
 }
 
-init_drill = function(creep)
+init_drill = function(creep_memory)
 {
-    creep.memory.role = "harvester"
+    console.log("Initializing drill system for")
+    creep_memory.role = "harvester"
 }
 
-init_mover = function(creep)
+init_mover = function(creep_memory)
 {
-    creep.memory.mover = "mover"
+    console.log("Initializing mover system for")
+    creep_memory.mover = "mover"
 }
 
 class Harvester 
@@ -132,6 +134,7 @@ class Harvester
             
         }
         
+        /*
         var total_harvesters = 0
         for(var i in Memory.mine_info)
         {
@@ -139,10 +142,10 @@ class Harvester
             var harvesters_per_mine = info.max + Math.round(info.distance / 4);
             //console.log("Mine "+i+" needs "+harvesters_per_mine+" harvesters")
             total_harvesters = total_harvesters+ harvesters_per_mine
-        }
+        }*/
         //console.log("Need " + total_harvesters + " harvesters")
         
-        Memory.need_harvesters = total_harvesters
+        Memory.need_harvesters = Memory.mine_info.length
     }
     
     start_turn()

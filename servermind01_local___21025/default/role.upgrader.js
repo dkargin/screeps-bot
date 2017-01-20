@@ -71,16 +71,10 @@ class Upgrader
             //var storages = creep.room.find(FIND_STRUCTURES)
             var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                 filter: (structure) => {
-                    /*if(structure.structureType == STRUCTURE_CONTAINER)
-                        return structure.store[RESOURCE_ENERGY] > 0;
-                    return (structure.energy > 0) && (structure.energyCapacity > 400);*/
                     return structure.structureType == STRUCTURE_CONTAINER && structure.store[RESOURCE_ENERGY] > 0;
                 }
                 });
-                /*  == STRUCTURE_EXTENSION ||
-                                    structure.structureType == STRUCTURE_SPAWN ||
-                                    structure.structureType == STRUCTURE_TOWER || 
-                                    structure.structureType == STRUCTURE_CONTAINER */
+            
             if(target)
             {
                 //if(creep.withdraw(target) == ERR_NOT_IN_RANGE)

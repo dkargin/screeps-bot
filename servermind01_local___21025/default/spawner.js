@@ -157,16 +157,14 @@ class RecipeHelper
     {
         console.log("Initializing creep data for "+uid)
         var info = this.get_info()
-        var creep = Game.creeps[uid]
-        creep.memory = {}
-        creep.memory.recipe = this.name
-        creep.memory.recipe_rev = desc.name
-        if(!desc.reused_index)
-            info.last_created ++
-        creep.memory.index = info.last_created
+        //var creep = Game.creeps[uid]
+
+        //if(!desc.reused_index)
+        //    info.last_created ++
+        //creep_memory.index = info.last_created
         info.population.push(uid)
 
-        this.initializer(creep)
+        //this.initializer(creep_memory)
     }
 
     /// Generates best recipe available for specified cost limit
@@ -357,7 +355,7 @@ class HoP
         /// Check if spawn queue is empty
         if(room.memory.spawn_queue.length == 0)
         {
-            console.log("Spawn queue for room" + room.name + " is empty")
+            //console.log("Spawn queue for room" + room.name + " is empty")
             return;
         }
         
@@ -408,7 +406,7 @@ class HoP
         }
 
         
-        console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
+        //console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
         var test_result = spawn.canCreateCreep(desc.blueprint, desc.unique_name)
 
         switch(test_result)
@@ -430,10 +428,17 @@ class HoP
 
         if(test_result == OK)
         {
-            console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
-            var result = spawn.createCreep(desc.blueprint, desc.unique_name)
+            console.log("Spawning design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
+            var memory = 
+            {
+                recipe:name,
+                recipe_rev:desc.name
+            }
+            helper.initializer(memory)
+            var result = spawn.createCreep(desc.blueprint, desc.unique_name, memory)
             if(_.isString(result)) 
             {   
+                console.log("Spawned design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
                 /// Really created a creep
                 var creep = Game.creeps[result]
                 helper.initializer(creep)

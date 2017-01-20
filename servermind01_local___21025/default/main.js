@@ -121,9 +121,6 @@ module.exports.loop = function ()
             //console.log("TOWERS FOUND: " + towers); 
         }    
     }
-    
-    
-    /*
 
     for(var name in Game.creeps) 
     {
@@ -135,10 +132,7 @@ module.exports.loop = function ()
         
         if(creep.memory.role in controllers)
             controllers[role].run(creep)
-    }*/
-    
-    return;
-    
+    }    
     
     for(var s in Game.spawns)
     {
