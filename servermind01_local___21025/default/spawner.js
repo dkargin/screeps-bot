@@ -32,7 +32,7 @@ print_bp_costs = function()
 {
     for(var body in BODYPART_COST)
     {
-        print("Part="+body+" cost="+BODYPART_COST[body])
+        console.log("Part="+body+" cost="+BODYPART_COST[body])
     }
 }
 
@@ -44,33 +44,41 @@ get_recipe_cost = function(packed_bp)
     {
         var part_cost = BODYPART_COST[part]
         var part_count = packed_bp[part]
-        console.log("Part="+part+" cost="+part_cost+" count="+part_count)
+        //console.log("Part="+part+" cost="+part_cost+" count="+part_count)
         cost = cost + part_cost*part_count; 
     }
-    return cost
+    return parseInt(cost)
 }
 
 generate_simple_recipe = function(bp, max_cost)
 {
-    console.log("Running simple recipe generator, max_cost="+max_cost)
- // spawn.getM
+    max_cost = parseInt(max_cost, 10)
+    //console.log("Running simple recipe generator, max_cost="+max_cost)
+    
+    //print_bp_costs()
+    //spawn.getM
     var recipes = bp
     var best
     var name
     
     for(var i in recipes)
     {
-        var cost = get_recipe_cost(recipes[i])
-        console.log("Checking recipe name="+i+" cost="+cost+" bpu="+unpack_recipe(recipes[i]))
-        if(max_cost >= cost)
+        var c = parseInt(get_recipe_cost(recipes[i]))
+        if(max_cost < c)
         {
+            //console.log("Stopped checking at"+c)
+            break;
+        }
+        else
+        {
+            //console.log("Improving recipe="+i+" cost="+c+" bpu="+unpack_recipe(recipes[i]))
             best = recipes[i]
             name = i
         }
     }
     
-    console.log("Best="+best+" cost = " + get_recipe_cost(recipes[i]))
-    return name, best   
+    //console.log("generate_simple_recipe best="+best+" cost = " + get_recipe_cost(best) + "max=" + max_cost)
+    return { name:name, blueprint:unpack_recipe(best) }
 }
 
 make_simple_generator = function(name, bp)
@@ -109,6 +117,84 @@ class RecipeHelper
         info.required = 0
         info.last_created = 0
     }
+
+    get_info()
+    {
+        return Memory.recipe_info[this.name]
+    }
+
+    get_population()
+    {
+        return this.get_info().population
+    }
+
+    /// Get index of last created creep
+    get_last_created()
+    {
+        return this.get_info().last_created
+    }
+
+    /// Called by HoP when creep is created
+    creep_created(uid, desc)
+    {
+        var info = this.get_info()
+        var creep = Game.creeps[uid]
+        creep.memory.recipe = this.name
+        creep.memory.recipe_rev = desc.name
+        info.last_created ++
+        info.population.push(uid)
+    }
+
+    /// Generates best recipe available for specified room
+    /// @returns dictionary with fields: {name, blueprint, unique_name}
+    ///  - name - blueprint name
+    ///  - blueprint - body description
+    ///  - unique_name - unique name for a creep
+    get_best_recipe(room, blueprint)
+    {
+        
+        var helper = this.helpers[blueprint]
+        if(!helper)
+        {
+            console.log("Picking best recipe for blueprint"+blueprint+" .. no such blueprint")
+            return "norecipe", []
+        }
+        var info = this.get_info()
+        //console.log("Picking best recipe for blueprint="+blueprint)
+        var cost_limit = room.energyCapacityAvailable
+        var result = helper.generator(cost_limit)
+        result['unique_name'] = result.name + "#" + (info.last_created+1)
+        
+        return result 
+    }
+
+    /// Check recipe population
+    check_population()
+    {
+        var info = this.get_info()
+        var dead = []
+        var alive = []
+        /// Check alive creeps
+        for(var i in info.population)
+        {
+            var name = info.population[i]
+            if(!Game.creeps[name])
+            {
+                dead.push(name)
+            }
+            else
+            {
+                alive.push(name)
+            }
+        }
+
+        info.population = alive
+
+        if(dead.length > 0)
+        {
+            console.log("Found dead creeps:" + dead)
+        }
+    }
 }
 
 
@@ -130,11 +216,21 @@ class HoP
             Memory.recipe_info = {}
         }
         
+        for(var s in Game.spawns)
+        {
+            var room = Game.spawns[s].room
+            
+            if(!room.memory.spawn_queue)
+            {
+                room.memory.spawn_queue = []
+            }
+        }
+        
         var controller = this
         
         Room.prototype.enqueue = function(recipe)
         {
-            controller.enqueue(this, recipe)
+            return controller.enqueue(this, recipe)
         }
         
         Room.prototype.memorize_recipe = function(recipe, generator)
@@ -146,10 +242,21 @@ class HoP
         {
             console.log(this.memory.spawn_queue)
         }
+
+        Spawn.prototype.print_queue = function()
+        {
+            console.log(this.room.memory.spawn_queue)
+        }
+
+        Spawn.prototype.pop_queue = function()
+        {
+            this.room.memory.spawn_queue.pop()
+            console.log(this.room.memory.spawn_queue)
+        }
         
         Room.prototype.get_recipe = function(recipe)
         {
-            return controller.get_best_recipe(this, recipe)
+            return controller.get_best_recipe_desc(this, recipe)
         }
     }
 
@@ -181,10 +288,14 @@ class HoP
     /// @param recipe - recipe name
     enqueue(room, recipe)
     {
-        console.log("Adding recipe "+recipe+" to room "+ this.name)
-        spawn_queue = room.memory.spawn_queue
+        console.log("Adding recipe "+recipe+" to room "+ room.name)
+        var spawn_queue = room.memory.spawn_queue
         if(spawn_queue.length < this.max_length)
+        {
             spawn_queue.push(recipe)
+            return true
+        }
+        return false
     }
 
     /// Update required population for specified recipe
@@ -206,56 +317,92 @@ class HoP
         
         /// Check if spawn queue is empty
         if(room.memory.spawn_queue.length == 0)
-            return;
-            
-        for(var i in room.spawns)
         {
-            process_spawn(room.spawns[i])
+            console.log("Spawn queue for room" + room.name + " is empty")
+            return;
+        }
+        
+        for(var i in Game.spawns)
+        {
+            this.process_spawn(Game.spawns[i], Game.spawns[i].room)
         }
     }
     
-    
-    get_best_recipe(room, blueprint)
+    /// Get best recipe descriptor
+    get_best_recipe_desc(room, blueprint)
     {
         
         var helper = this.helpers[blueprint]
         if(!helper)
         {
             console.log("Picking best recipe for blueprint"+blueprint+" .. no such blueprint")
-            return "norecipe", []
+            return
         }
-        console.log("Picking best recipe for blueprint="+blueprint)
-        var cost_limit = room.energyCapacityAvailable
-        var local_name, bp_packed = helper.generator(cost_limit)
+        //console.log("Picking best recipe for blueprint="+blueprint)
         
-        blueprint = unpack_recipe(bp_packed)
-        return local_name, blueprint
+        return helper.generator(room.energyCapacityAvailable) 
     }
     
     /// Run spawner updating process
     process_spawn(spawn, room)
     {
-        if(!spawn.spawning)
+        if(spawn.spawning)
+            return
+        
+        var name = room.memory.spawn_queue[0]
+
+        var helper = this.helpers[name]
+
+        if (!helper)
         {
-            var name = room.memory.spawn_queue[0]
-            var design_name, blueprint = this.get_best_recipe(room, name)
-            console.log("Trying to spawn design="+name+" rev_name="+design_name+" data=" + blueprint)
-            /*
-            var result = spawn.createCreep(recipe, "Harvester #"+new_id, {role: 'harvester'})
-            if(result == OK)
-            {
-                Memory.last_harvester++;
-                console.log("Created harvester: "+recipe)
-            }
-            if(result == -3)
-            {
-                Memory.last_harvester++;
+            console.log("Invalid bp name in production queue: " + name)
+            room.memory.spawn_queue.pop()
+            return
+        }
+
+        var desc = this.get_best_recipe_desc(room, name)
+
+        if(!desc)
+        {
+            room.memory.spawn_queue.pop()
+            return
+        }
+
+        //console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
+
+        var test_result = spawn.canCreateCreep(desc.blueprint, desc.unique_name)
+
+        switch(test_result)
+        {
+        case OK:
+            console.log("Can create new "+name)
+            break;
+        case ERR_NOT_ENOUGH_ENERGY:
+            //console.log("Not enough energy for "+name)
+            break;
+        case ERR_NAME_EXISTS:
+            console.log("Name "+ new_name + " already exists")
+            break
+        case ERR_INVALID_ARGS:
+            console.log("Invalid recipe body " + name)
+            break
+        }
+
+        if(test_result == OK)
+        {
+            var result = spawn.createCreep(desc.blueprint, desc.unique_name)
+            if(_.isString(result)) 
+            {   
+                /// Really created a creep
+                var creep = Game.creeps[result]
+                helper.initializer(creep)
+                helper.creep_created(creep, desc)
+                room.memory.spawn_queue.pop()
             }
             else
             {
-                console.log("Failed to build harvester " + recipe + ":" + result)
-                
-            }*/
+                console.log("Failed to spawn for some reason")
+            }
         }
     }
 }

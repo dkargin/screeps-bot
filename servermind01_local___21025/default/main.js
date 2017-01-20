@@ -137,6 +137,8 @@ module.exports.loop = function ()
             controllers[role].run(creep)
     }*/
     
+    return;
+    
     
     for(var s in Game.spawns)
     {

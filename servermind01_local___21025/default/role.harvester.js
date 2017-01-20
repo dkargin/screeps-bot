@@ -15,23 +15,6 @@ var AIState =
     MoveRecycle: 12,    /// Return to be recycled
 }
 
-// Recipes for heavy drill
-//
-var recipes_drill = {
-    worker_mk1: {WORK:2, CARRY:1, MOVE:1},                                  // 300
-    worker_mk2: {WORK:3, CARRY:1, MOVE:1},                                  // 400
-    worker_mk3: {WORK:4, CARRY:1, MOVE:1},                                  // 500
-    worker_mk4: {WORK:5, CARRY:1, MOVE:1},                                  // 600
-    worker_mk5: {WORK:6, CARRY:1, MOVE:1},                                  // 700
-    worker_mk6: {WORK:7, CARRY:1, MOVE:1},                                  // 800
-    worker_mk7: {WORK:8, CARRY:1, MOVE:1},                                  // 900
-}
-
-var recipes_mover = 
-{
-    mover_mk1: {CARRY:1, MOVE:1}
-}
-
 init_drill = function(creep)
 {
     creep.memory.role = "harvester"
@@ -66,6 +49,22 @@ class Harvester
     
     init_recipes(HoP)
     {
+        // Recipes for heavy drill
+        //
+        var recipes_drill = {
+            worker_mk1: {work:2, carry:1, move:1},                                  // 300
+            worker_mk2: {work:3, carry:1, move:1},                                  // 400
+            worker_mk3: {work:4, carry:1, move:1},                                  // 500
+            worker_mk4: {work:5, carry:1, move:1},                                  // 600
+            worker_mk5: {work:6, carry:1, move:1},                                  // 700
+            worker_mk6: {work:7, carry:1, move:1},                                  // 800
+            worker_mk7: {work:8, carry:1, move:1},                                  // 900
+        }
+        
+        var recipes_mover = 
+        {
+            mover_mk1: {carry:1, move:1}
+        }
         console.log("Initializing recipes for Harvester class")
         HoP.memorize_recipe_simple("miner", recipes_drill, init_drill)
         HoP.memorize_recipe_simple("mover", recipes_mover, init_mover)
