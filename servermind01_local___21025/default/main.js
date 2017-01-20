@@ -65,6 +65,7 @@ var controllers =
 { 
     harvester : require('role.harvester'),
     upgrader : require('role.upgrader'),
+    mover : require('role.mover')
 }
 
 run_tower = function(tower)
@@ -95,6 +96,7 @@ module.exports.loop = function ()
     {
         firstTick = false;
         controllers.harvester.init_recipes(HoP)
+        controllers.mover.init_recipes(HoP)
         controllers.upgrader.init_recipes(HoP)
     }
     

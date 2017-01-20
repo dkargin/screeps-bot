@@ -403,17 +403,6 @@ class Harvester
         }
     }
     
-    find_mine(creep)
-    {
-        
-    }
-    
-    process_search_loot(creep)
-    {
-        creep.memory.state = AIState.SearchMine
-        //console.log(creep+' stopped searching for loot')
-    }
-    
     /** **/
     process_search_dump(creep)
     {
@@ -581,7 +570,7 @@ class Harvester
     
     process_idle(creep)
     {
-        creep.memory.state = AIState.SearchLoot;
+        creep.memory.state = AIState.SearchMine;
     }
     
     analyse_body(creep)
