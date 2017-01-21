@@ -14,6 +14,7 @@ unpack_recipe = function(packed_recipe)
     return result
 }
 
+/// Takes recipe in form [work, work, carry, move] and returns in form {work:2, carry:1, move:1}
 pack_recipe = function(recipe)
 {
     var packed = {}
@@ -27,6 +28,25 @@ pack_recipe = function(recipe)
     }
     return packed
 }
+
+Room.prototype.pack_recipe = function(recipe)
+{
+    return pack_recipe(recipe)
+}
+
+Room.prototype.unpack_recipe = function(recipe)
+{
+    return unpack_recipe(recipe)
+}
+
+/// Check if creep is heavy worker
+/// This kind of workers do not like to move far
+Creep.prototype.is_heavy_worker = function()
+{
+    var packed_recipe = this.room.pack_recipe(this.body)
+    return packed_recipe.work > 2    
+}
+
 
 print_bp_costs = function()
 {
@@ -119,7 +139,7 @@ Room.prototype.clear_flags = function()
 
 Room.prototype.mass_suicide = function()
 {
-    
+
 }
 
 Spawn.prototype.clear_flags = function()

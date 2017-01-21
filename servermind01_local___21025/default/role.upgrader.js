@@ -35,9 +35,9 @@ class Upgrader
     check_spawn(spawn)
     {
         //console.log("Checking upgraders: " + this.upgraders)
-        if(this.upgraders < 5)
+        if(this.upgraders < 3)
         {
-            spawn.createCreep([WORK, WORK, CARRY, MOVE], "Upgrader #"+(Memory.last_upgrader++), {role: 'upgrader'})
+            spawn.room.enqueue('upgrader')
         }
     }
     

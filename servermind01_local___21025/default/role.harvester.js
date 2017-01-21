@@ -21,15 +21,9 @@ init_drill = function(creep_memory)
     creep_memory.role = "harvester"
 }
 
-init_mover = function(creep_memory)
-{
-    console.log("Initializing mover system for")
-    creep_memory.mover = "mover"
-}
-
 Room.prototype.has_movers = function()
 {
-    
+    return true    
 }
 
 class Harvester 
@@ -53,6 +47,13 @@ class Harvester
         for(var i in Game.spawns)
             this.analyse_mines(Game.spawns[i])
     }
+
+
+    /// Check if miner is heavy
+    is_miner_heavy(creep)
+    {
+        
+    }
     
     init_recipes(HoP)
     {
@@ -68,13 +69,8 @@ class Harvester
             worker_mk7: {work:8, carry:1, move:1},                                  // 900
         }
         
-        var recipes_mover = 
-        {
-            mover_mk1: {carry:1, move:1}
-        }
         console.log("Initializing recipes for Harvester class")
         HoP.memorize_recipe_simple("miner", recipes_drill, init_drill)
-        HoP.memorize_recipe_simple("mover", recipes_mover, init_mover)
     }
     
     /** Will find and fill in mining spots **/
@@ -187,35 +183,7 @@ class Harvester
     /** @param {StructureSpawn} spawn **/ 
     check_spawn(spawn)
     {
-        if(Memory.need_harvesters > this.harvesters && !spawn.spawning)
-        {
-            var recipe = this.get_best_recipe(spawn)
-            
-            var new_id = Memory.last_harvester;
-            
-            var retries = 5
-            while(retries--)
-            {
-                var result = spawn.createCreep(recipe, "Harvester #"+new_id, {role: 'harvester'})
-                if(result == OK)
-                {
-                    Memory.last_harvester++;
-                    console.log("Created harvester: "+recipe)
-                    break
-                }
-                if(result == -3)
-            	{
-                	Memory.last_harvester++;
-                	continue
-            	}
-                else
-                {
-                    console.log("Failed to build harvester " + recipe + ":" + result)
-                    
-                }
-                break
-            }
-        }
+        
     }
     
     /** @param {Creep} creep **/
@@ -300,7 +268,10 @@ class Harvester
             }
             else
             {
-                creep.memory.state = AIState.Mining
+                if(creep.is_heavy_worker() && creep.memory.recipe == 'miner')
+                    creep.memory.state = AIState.LongDrill
+                else
+                    creep.memory.state = AIState.Mining
                 creep.memory.target = mine.id 
                 creep.say("Remi!")
             }
@@ -315,7 +286,6 @@ class Harvester
         var target = Game.getObjectById(creep.memory.target)
         if(creep.carry.energy < creep.carryCapacity) 
 	    {
-	        
 	        if(!target)
 	        {
 	            console.log(creep.name + " has lost mining target:"+creep.memory.target)
@@ -345,6 +315,21 @@ class Harvester
                 this.free_mine(target.id, creep)
                 creep.memory.target = 0
                 creep.say("Neeta") // need target
+            }
+
+            if(creep.carry.energy > 0)
+            {
+                var target = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+                    filter: (structure) => {
+                        if(structure.structureType == STRUCTURE_CONTAINER)
+                            return structure.store[RESOURCE_ENERGY] < structure.storeCapacity;
+                        return (structure.energyCapacity > 0) && structure.energy < structure.energyCapacity;
+                    }
+                });
+                if(target)
+                {
+                    creep.transfer(target, RESOURCE_ENERGY)
+                }
             }
         }
         else
@@ -407,7 +392,8 @@ class Harvester
     process_search_dump(creep)
     {
         //console.log("Finding suitable target")
-        var targets = creep.room.find(FIND_STRUCTURES, {
+        var target
+        var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                 filter: (structure) => {
                     if(structure.structureType == STRUCTURE_CONTAINER)
                         return structure.store[RESOURCE_ENERGY] < structure.storeCapacity;
@@ -419,23 +405,26 @@ class Harvester
                             structure.structureType == STRUCTURE_TOWER || 
                             structure.structureType == STRUCTURE_CONTAINER */
         
-        if(targets.length > 0) 
+        if(target) 
         {
-            var target = targets[0]
             creep.memory.target = target.id
             creep.memory.state = AIState.MoveDump
             creep.say("pidu! "+target.id)
             return true
         }
         
-        var target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
-        if(target)
+        /// Heavy miner does not build
+        if(!creep.is_heavy_worker() && creep.memory.recipe == 'miner')
         {
-            creep.moveTo(target)
-            creep.memory.target = target.id
-            creep.memory.state = AIState.MoveBuild
-            creep.say("Pibi! "+target.id)
-            return true
+            var target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
+            if(target)
+            {
+                creep.moveTo(target)
+                creep.memory.target = target.id
+                creep.memory.state = AIState.MoveBuild
+                creep.say("Pibi! "+target.id)
+                return true
+            }
         }
     }
     
@@ -597,8 +586,6 @@ class Harvester
                 this.process_idle(creep);
                 break;
             case AIState.SearchLoot:
-                this.process_search_loot(creep);
-                break;
             case AIState.SearchMine:
                 this.process_search_mine(creep);
                 break;

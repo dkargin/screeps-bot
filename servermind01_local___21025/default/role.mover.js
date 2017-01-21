@@ -10,12 +10,20 @@ var AIState =
     Recharge : 7,
 }
 
-init_drill = function(creep_memory)
+var FEED_SPAWN = 'feed_spawn'
+var FEED_BASE = 'feed_base'
+
+init_mover_spawn = function(creep_memory)
 {
-    console.log("Initializing drill system for")
-    creep_memory.role = "harvester"
+    creep_memory.role = 'mover'
+    creep_memory.subrole = FEED_SPAWN
 }
 
+init_mover_base = function(creep_memory)
+{
+    creep_memory.role = 'mover'
+    creep_memory.subrole = FEED_BASE
+}
 
 /// Takes energy only from storage
 class Mover 
@@ -24,7 +32,8 @@ class Mover
     {
         Memory.drill_spots = []
         this.max_range = 1
-        this.movers = 0
+        this.num_feed_spawn = 0
+        this.num_feed_base = 0
         this.role = 'mover'
 
         Memory.need_objects = 1
@@ -34,101 +43,39 @@ class Mover
     {   
         var recipes_mover = 
         {
-            mover_mk1: {carry:1, move:1}
+            mover_mk1: {carry:3, move:3},
+            mover_mk2: {carry:6, move:6},
+            mover_mk3: {carry:8, move:8},
+            mover_mk4: {carry:10, move:10},
         }
 
         console.log("Initializing recipes for Mover class")
-        HoP.memorize_recipe_simple("mover", recipes_mover, init_mover)
+        HoP.memorize_recipe_simple("mover", recipes_mover, init_mover_spawn)
+        HoP.memorize_recipe_simple("feeder", recipes_mover, init_mover_base)
     }
     
-    check_storage()
-    {
-
-    }       
-
     start_turn()
     {
-        this.movers = 0
+        this.num_feed_spawn = 0
+        this.num_feed_base = 0
     }
     
     /** @param {StructureSpawn} spawn **/ 
     check_spawn(spawn)
     {
-    }
-    
-    process_search_mine(creep)
-    {
-        var mine = this.pick_mine(creep)
-        if(mine)
-        {
-            if(creep.harvest(mine) == ERR_NOT_IN_RANGE) 
-            {
-                creep.memory.target = mine.id 
-                creep.say("Momi!")
-                creep.memory.state = AIState.MoveMine
-            }
-            else
-            {
-                creep.memory.state = AIState.Mining
-                creep.memory.target = mine.id 
-                creep.say("Remi!")
-            }
-        }
-    }
-    
-    /** @param {Creep} creep **/
-    process_mining(creep) 
-    {
-        //console.log("Creep="+creep.name+" is mining")
-        var target = Game.getObjectById(creep.memory.target)
-        if(creep.carry.energy < creep.carryCapacity) 
-	    {
-	        
-	        if(!target)
-	        {
-	            console.log(creep.name + " has lost mining target:"+creep.memory.target)
-	            creep.memory.state = AIState.SearchMine;
-	            creep.memory.target = 0
-                creep.say("Neeta") // need target
-                return
-	        }
-	        
-            //var sources = creep.room.find(FIND_SOURCES);
-            var res = creep.harvest(target)
-            if(res == ERR_NOT_IN_RANGE) 
-            {
-                creep.memory.state = AIState.SearchMine;
-                this.free_mine(target.id, creep)
-                creep.memory.target = 0
-                creep.say("Neeta") // need target
-            }
-            else if(res == OK)
-            {
-                // OK
-            }
-            else
-            {
-                console.log(creep.name + " has lost mining target:"+res)
-                creep.memory.state = AIState.SearchMine;
-                this.free_mine(target.id, creep)
-                creep.memory.target = 0
-                creep.say("Neeta") // need target
-            }
-        }
-        else
-        {
-             creep.say("Complete")
-             this.free_mine(target.id, creep)
-             creep.memory.target = 0;
-             creep.memory.state = AIState.SearchDump;
-        }
+        /*
+        if(this.num_feed_base < 4)
+            spawn.room.enqueue('feeder')
+        if(this.num_feed_base < 1)
+            spawn.room.enqueue('mover')*/
     }
     
     /** Searching for dump **/
     process_search_drop(creep)
     {
         //console.log("Finding suitable target")
-        var targets
+        var target
+        var controller = (this)
 
         if(creep.memory.subrole == 'feed_spawn')
         {
@@ -143,12 +90,16 @@ class Mover
         }
         else
         {
-            target = creep.room.findClosestByPath(FIND_STRUCTURES, 
+            target = creep.pos.findClosestByPath(FIND_STRUCTURES, 
             {
                 filter: (structure) => {
+                    
                     if(structure.structureType == STRUCTURE_CONTAINER)
-                        return structure.store[RESOURCE_ENERGY] < structure.storeCapacity;
-                    return (structure.energyCapacity > 0) && structure.energy < structure.energyCapacity;
+                    {
+                        var valid = controller.valid_drop(creep, structure);
+                        return structure.store[RESOURCE_ENERGY] < structure.storeCapacity && valid;
+                    }
+                    return (structure.energyCapacity > 0) && (structure.energy < structure.energyCapacity);
                 }
             });
         }
@@ -157,24 +108,54 @@ class Mover
         {
             creep.memory.target = target.id
             creep.memory.state = AIState.MoveDrop
+            creep.moveTo(target)
             creep.say("pidu! "+target.id)
             return true
         }
     }
 
+    get_container_info(container)
+    {
+        var pos = container.pos
+        var look = container.room.lookAt(pos);
+        var flag
+        look.forEach(function(obj) 
+        {
+            if(obj.type == LOOK_FLAGS) 
+            {
+                flag = obj.flag
+            }
+        });
+
+        if(flag)
+        {
+            return flag.memory.role
+        }
+        return 'none'
+    }
+
     valid_pick(creep, container)
     {
-        return true;
+        var role = this.get_container_info(container)
+        return creep.memory.role == 'mover' && role != 'upgrade';
+    }
+
+    valid_drop(creep, container)
+    {
+        var role = this.get_container_info(container)
+        return creep.memory.role != 'mover' && role != 'source'
     }
 
     process_search_pick(creep)
     {
-        var controller = this
-        var target = creep.room.findClosestByPath(FIND_STRUCTURES, 
+        var controller = (this)
+
+        var target = creep.pos.findClosestByPath(FIND_STRUCTURES, 
         {
             filter: (structure) => {
-                if(structure.structureType == STRUCTURE_CONTAINER)
-                    return structure.store[RESOURCE_ENERGY] > 0 && controller.valid_pick(creep, structure);
+                return structure.structureType == STRUCTURE_CONTAINER && 
+                    structure.store[RESOURCE_ENERGY] > 0 && 
+                    controller.valid_pick(creep, structure);
                 /// TODO: can use LARGE container
             }
         });
@@ -202,9 +183,19 @@ class Mover
 
         if(creep.pos.inRangeTo(target, 1))
         {
-            creep.memory.state = AIState.Mining
-            creep.say("Remi!"); // Reached mining site
-            return true
+            if(target.transfer(creep, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
+            {
+                creep.memory.state = AIState.Idle   
+                creep.memory.target = 0
+                return true
+            }
+            else
+            {
+                creep.say("Picked")
+                creep.memory.state = AIState.MoveDrop
+                creep.memory.target = 0
+                return true
+            }
         }
         else
         {
@@ -216,11 +207,12 @@ class Mover
         
     process_move_drop(creep)
     {
-        //console.log("Returning with harvest")
+        console.log("Returning with harvest to "+creep.memory.target)
         var pos = creep.pos
                 
         if( creep.carry.energy == 0 )
         {
+            console.log("Out of energy. Return to initial state")
             creep.memory.target = 0
             creep.memory.state = AIState.Idle;
             return;
@@ -251,11 +243,23 @@ class Mover
                 creep.moveTo(target);
             }
         }
+        else
+        {
+            console.log("Has invalid target. Will reset")
+            creep.memory.target = 0
+            creep.memory.state = AIState.Idle
+        }
     }
     
     process_idle(creep)
     {
-        creep.memory.state = AIState.SearchPick;
+        if(creep.carry.energy > 0)
+        {
+            console.log("Mover " + creep.name + " still has " + creep.carry.energy + "eg")
+            creep.memory.state = AIState.SearchDrop;
+        }
+        else
+            creep.memory.state = AIState.SearchPick;
     }
     
     step_fsm(creep)
@@ -273,7 +277,7 @@ class Mover
                 return this.process_move_pick(creep);
             case AIState.MoveDrop:
                 return this.process_move_drop(creep);
-            case AIState.Mining:
+            case AIState.MoveRecycle:
                 return this.process_move_recycle(creep);
             case AIState.MoveRecharge:
                 return this.process_move_recharge(creep)
@@ -287,9 +291,11 @@ class Mover
     {
         if(!creep)
             return
-        this.own(creep)
         this.movers++
-        
+
+        if(!creep.memory.state)
+            creep.memory.state = AIState.Idle
+
         var iterations = 5
         do
         {

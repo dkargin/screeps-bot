@@ -91,13 +91,21 @@ var firstTick = true
 
 module.exports.loop = function () 
 {
-    
     if(firstTick)
     {
         firstTick = false;
         controllers.harvester.init_recipes(HoP)
         controllers.mover.init_recipes(HoP)
         controllers.upgrader.init_recipes(HoP)
+    }
+
+    for(var i in Game.flags)
+    {
+        var flag = Game.flags[i]
+        if(!flag.memory)
+            flag.memory = {}
+        if(!flag.memory.role)
+            flag.memory.role = "none"
     }
     
     for(var i in Memory.creeps) {
@@ -136,10 +144,18 @@ module.exports.loop = function ()
         if(creep.memory.role in controllers)
             controllers[role].run(creep)
     }    
+
+    
     
     for(var s in Game.spawns)
     {
         var spawn = Game.spawns[s]    
+
+        for(var i in controllers)
+        {
+            controllers[i].check_spawn(spawn)
+        }
+
         if(!spawn.spawning)
         {
             var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1)
@@ -151,15 +167,7 @@ module.exports.loop = function ()
             }
         }
     }
-        /*
-    {
-        for(var i in controllers)
-        {
-            controllers[i].check_spawn(spawn)
-        }
-        
-        
-        
-        build(spawn, STRUCTURE_EXTENSION);
-    }*/
+
+
+    build(spawn, STRUCTURE_EXTENSION);
 }
