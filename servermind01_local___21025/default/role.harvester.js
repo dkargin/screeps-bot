@@ -183,7 +183,12 @@ class Harvester
     /** @param {StructureSpawn} spawn **/ 
     check_spawn(spawn)
     {
-        
+        var available = spawn.population_available('miner')
+        console.log("Avail miners ="+available+" needed="+Memory.mine_info.length)
+        if(available < Memory.mine_info.length+1)
+        {
+            spawn.room.enqueue('miner')
+        }
     }
     
     /** @param {Creep} creep **/
@@ -232,6 +237,9 @@ class Harvester
             var mine = Game.getObjectById(id)
             if(!mine)
                 continue
+
+            if(mine.energy == 0)
+                continue
             
             var info = Memory.mine_info[id]
             var free = info.max - info.current
@@ -268,7 +276,7 @@ class Harvester
             }
             else
             {
-                if(creep.is_heavy_worker() && creep.memory.recipe == 'miner')
+                if(creep.is_heavy_worker()/* && creep.memory.recipe == 'miner'*/)
                     creep.memory.state = AIState.LongDrill
                 else
                     creep.memory.state = AIState.Mining
@@ -282,10 +290,30 @@ class Harvester
     /// Sticks to mining spot and drills forever
     process_longdrill(creep)
     {
-        //console.log("Creep="+creep.name+" is mining")
+        //console.log("Creep="+creep.name+" is longdrilling")
         var target = Game.getObjectById(creep.memory.target)
         if(creep.carry.energy < creep.carryCapacity) 
 	    {
+            /*
+            if(creep.carry.energy > 0)
+            {
+                var drop = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+                    filter: (structure) => {
+                        if(structure.structureType == STRUCTURE_CONTAINER)
+                            return structure.store[RESOURCE_ENERGY] < structure.storeCapacity;
+                        return (structure.energyCapacity > 0) && structure.energy < structure.energyCapacity;
+                    }
+                });
+                if(drop)
+                {
+                    res = creep.transfer(drop, RESOURCE_ENERGY)
+                    if(res != OK)
+                    {
+                        console.log("Longdrill failed to transfer resources")
+                    }
+                }
+            }*/
+
 	        if(!target)
 	        {
 	            console.log(creep.name + " has lost mining target:"+creep.memory.target)
@@ -315,21 +343,6 @@ class Harvester
                 this.free_mine(target.id, creep)
                 creep.memory.target = 0
                 creep.say("Neeta") // need target
-            }
-
-            if(creep.carry.energy > 0)
-            {
-                var target = creep.pos.findInRange(FIND_STRUCTURES, 1, {
-                    filter: (structure) => {
-                        if(structure.structureType == STRUCTURE_CONTAINER)
-                            return structure.store[RESOURCE_ENERGY] < structure.storeCapacity;
-                        return (structure.energyCapacity > 0) && structure.energy < structure.energyCapacity;
-                    }
-                });
-                if(target)
-                {
-                    creep.transfer(target, RESOURCE_ENERGY)
-                }
             }
         }
         else
@@ -603,6 +616,8 @@ class Harvester
                 return this.process_move_build(creep);
             case AIState.Building:
                 return this.process_build(creep)
+            case AIState.LongDrill:
+                return this.process_longdrill(creep)
         }
     }
     

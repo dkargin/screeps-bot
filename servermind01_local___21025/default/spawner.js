@@ -43,8 +43,14 @@ Room.prototype.unpack_recipe = function(recipe)
 /// This kind of workers do not like to move far
 Creep.prototype.is_heavy_worker = function()
 {
-    var packed_recipe = this.room.pack_recipe(this.body)
-    return packed_recipe.work > 2    
+    var work = 0
+    for(var p in this.body)
+    {
+        if(this.body[p].type == 'work')
+            work++
+    }
+    console.log("Creep "+this.name+"is checking is he a heavy worker with tool="+work)    
+    return work > 2
 }
 
 
@@ -146,6 +152,7 @@ Spawn.prototype.clear_flags = function()
 {
     this.room.clear_flags()
 }
+
 /// Wraps up recipe call
 /// We need to keep:
 ///  - total recipe population
@@ -161,16 +168,19 @@ class RecipeHelper
         this.generator = generator
         this.initializer = initializer
         
+        var info
         if(!Memory.recipe_info[name])
         {
             Memory.recipe_info[name] = {}
-            var info = Memory.recipe_info[name]
+            info = Memory.recipe_info[name]
             info.population = []
             info.population.free_index = []
             info.priority = 1
             info.required = 0
             info.last_created = 0
         }
+        if(!Memory.recipe_info[name].enqueued)
+            Memory.recipe_info[name].enqueued = 0
 
         if(!Memory.recipe_info[name].free_index)
             Memory.recipe_info[name].free_index = []
@@ -184,6 +194,11 @@ class RecipeHelper
     get_population()
     {
         return this.get_info().population.length
+    }
+
+    get_enqueued()
+    {
+        return this.get_info().enqueued
     }
 
     /// Get index of last created creep
@@ -203,7 +218,6 @@ class RecipeHelper
         //    info.last_created ++
         //creep_memory.index = info.last_created
         info.population.push(uid)
-
         //this.initializer(creep_memory)
     }
 
@@ -309,6 +323,16 @@ class HoP
         {
             return controller.enqueue(this, recipe)
         }
+
+        Spawn.prototype.enqueue = function(recipe)
+        {
+            return controller.enqueue(this, recipe)
+        }
+
+        Spawn.prototype.population = function(recipe)
+        {
+            return controller.population(recipe)
+        }
         
         Room.prototype.memorize_recipe = function(recipe, generator)
         {
@@ -320,9 +344,14 @@ class HoP
             console.log(this.memory.spawn_queue)
         }
 
-        Room.prototype.population = function(recipe)
+        Room.prototype.population_available = function(recipe)
         {
-            return controller.population(recipe)
+            return controller.population_available(recipe)
+        }
+
+        Spawn.prototype.population_available = function(recipe)
+        {
+            return controller.population_available(recipe)
         }
 
         Spawn.prototype.print_queue = function()
@@ -372,6 +401,15 @@ class HoP
         var helper = this.helpers[recipe]
 
         return helper.get_population()
+    }
+
+    population_available(recipe)
+    {
+        if(!this.helpers[recipe])
+            return 0
+        var helper = this.helpers[recipe]
+
+        return helper.get_population() + helper.get_enqueued()
     }
 
     /// Enqueue recipe

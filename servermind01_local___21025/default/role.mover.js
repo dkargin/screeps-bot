@@ -63,11 +63,11 @@ class Mover
     /** @param {StructureSpawn} spawn **/ 
     check_spawn(spawn)
     {
-        /*
-        if(this.num_feed_base < 4)
+        return
+        if(spawn.population_available('feeder') < 2)
             spawn.room.enqueue('feeder')
-        if(this.num_feed_base < 1)
-            spawn.room.enqueue('mover')*/
+        if(spawn.population_available('mover') < 1)
+            spawn.room.enqueue('mover')
     }
     
     /** Searching for dump **/
@@ -207,12 +207,12 @@ class Mover
         
     process_move_drop(creep)
     {
-        console.log("Returning with harvest to "+creep.memory.target)
+        //console.log("Returning with harvest to "+creep.memory.target)
         var pos = creep.pos
                 
         if( creep.carry.energy == 0 )
         {
-            console.log("Out of energy. Return to initial state")
+            //console.log("Out of energy. Return to initial state")
             creep.memory.target = 0
             creep.memory.state = AIState.Idle;
             return;
@@ -295,6 +295,8 @@ class Mover
 
         if(!creep.memory.state)
             creep.memory.state = AIState.Idle
+        if(!creep.memory.subrole)
+            creep.memory.subrole = FEED_SPAWN
 
         var iterations = 5
         do

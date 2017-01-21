@@ -35,7 +35,8 @@ class Upgrader
     check_spawn(spawn)
     {
         //console.log("Checking upgraders: " + this.upgraders)
-        if(this.upgraders < 3)
+        
+        if(spawn.population_available('upgrader') < 3)
         {
             spawn.room.enqueue('upgrader')
         }
