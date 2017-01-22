@@ -135,18 +135,18 @@ class Harvester
             
         }
         
-        /*
+        
         var total_harvesters = 0
         for(var i in Memory.mine_info)
         {
             var info = Memory.mine_info[i]
             var harvesters_per_mine = info.max + Math.round(info.distance / 4);
             //console.log("Mine "+i+" needs "+harvesters_per_mine+" harvesters")
-            total_harvesters = total_harvesters+ harvesters_per_mine
-        }*/
+            total_harvesters = total_harvesters+ 1 //harvesters_per_mine
+        }
         //console.log("Need " + total_harvesters + " harvesters")
         
-        Memory.need_harvesters = Memory.mine_info.length
+        Memory.need_harvesters = total_harvesters //Memory.mine_info.length
     }
     
     start_turn()
@@ -185,7 +185,7 @@ class Harvester
     {
         var available = spawn.population_available('miner')
         console.log("Avail miners ="+available+" needed="+Memory.mine_info.length)
-        if(available < Memory.mine_info.length+1)
+        if(available < Memory.need_harvesters)
         {
             spawn.room.enqueue('miner')
         }
