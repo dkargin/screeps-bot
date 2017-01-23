@@ -76,6 +76,8 @@ module.exports.loop = function ()
         }
     }
 
+    HoP.check_population()
+
     for(var i in Game.flags)
     {
         var flag = Game.flags[i]

@@ -34,7 +34,7 @@ class Upgrader
     
     check_spawn(spawn)
     {
-        //console.log("Checking upgraders: " + this.upgraders)
+        console.log("Checking upgraders: " + this.upgraders)
         
         if(spawn.population_available('upgrader') < 3)
         {
