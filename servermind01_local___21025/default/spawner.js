@@ -39,21 +39,6 @@ Room.prototype.unpack_recipe = function(recipe)
     return unpack_recipe(recipe)
 }
 
-/// Check if creep is heavy worker
-/// This kind of workers do not like to move far
-Creep.prototype.is_heavy_worker = function()
-{
-    var work = 0
-    for(var p in this.body)
-    {
-        if(this.body[p].type == 'work')
-            work++
-    }
-    console.log("Creep "+this.name+"is checking is he a heavy worker with tool="+work)    
-    return work > 2
-}
-
-
 print_bp_costs = function()
 {
     for(var body in BODYPART_COST)
@@ -109,7 +94,7 @@ generate_simple_recipe = function(bp, max_cost)
 
 make_simple_generator = function(name, bp)
 {
-    console.log("Making simple blueprint generator for type="+name)
+    //console.log("Making simple blueprint generator for type="+name)
     return function(cost)
     {
         return generate_simple_recipe(bp, cost)  
@@ -208,7 +193,7 @@ class RecipeHelper
     }
 
     /// Called by HoP when creep is created
-    creep_created(uid, desc)
+    creep_created(room, uid, desc)
     {
         console.log("Initializing creep data for "+uid)
         var info = this.get_info()
@@ -218,6 +203,13 @@ class RecipeHelper
         //    info.last_created ++
         //creep_memory.index = info.last_created
         info.population.push(uid)
+
+        info.enqueued--
+        if(info.enqueued < 0)
+        {
+            console.log("Error: enqued counter became zero")
+            info.enqueued = 0
+        }
         //this.initializer(creep_memory)
     }
 
@@ -246,8 +238,20 @@ class RecipeHelper
         return result 
     }
 
+    on_popped(room)
+    {
+        var info = this.get_info()
+
+        info.enqueued--
+        if(info.enqueued < 0)
+        {
+            console.log("Error: enqued counter became zero")
+            info.enqueued = 0
+        }
+    }
+
     /// Check recipe population
-    check_population()
+    check_population(queue)
     {
         var info = this.get_info()
         var dead = []
@@ -326,7 +330,7 @@ class HoP
 
         Spawn.prototype.enqueue = function(recipe)
         {
-            return controller.enqueue(this, recipe)
+            return controller.enqueue(this.room, recipe)
         }
 
         Spawn.prototype.population = function(recipe)
@@ -344,6 +348,11 @@ class HoP
             console.log(this.memory.spawn_queue)
         }
 
+        Spawn.prototype.print_queue = function()
+        {
+            console.log(this.room.memory.spawn_queue)
+        }
+
         Room.prototype.population_available = function(recipe)
         {
             return controller.population_available(recipe)
@@ -354,15 +363,14 @@ class HoP
             return controller.population_available(recipe)
         }
 
-        Spawn.prototype.print_queue = function()
-        {
-            console.log(this.room.memory.spawn_queue)
-        }
-
         Spawn.prototype.pop_queue = function()
         {
-            this.room.memory.spawn_queue.pop()
-            console.log(this.room.memory.spawn_queue)
+            return controller.pop_queue(this.room)
+        }
+
+        Spawn.prototype.clear_queue = function()
+        {
+            return controller.clear_queue(this.room)
         }
         
         Room.prototype.get_recipe = function(recipe)
@@ -417,14 +425,42 @@ class HoP
     /// @param recipe - recipe name
     enqueue(room, recipe)
     {
+        var helper = this.helpers[recipe]
+        if(!helper)
+        {
+            console.log("ERROR: No recipe helper for "+name)
+        }
+
         console.log("Adding recipe "+recipe+" to room "+ room.name)
         var spawn_queue = room.memory.spawn_queue
+        
+        if(!room.memory.spawn_queue)
+            room.memory.spawn_queue = []
+
         if(spawn_queue.length < this.max_length)
         {
             spawn_queue.push(recipe)
+            helper.get_info().enqueued++
             return true
         }
         return false
+    }
+
+    pop_queue(room)
+    {
+        var recipe = room.memory.spawn_queue.pop()
+        var helper = this.helpers[recipe]
+        if(helper)
+        {
+            helper.on_popped(room)
+        }
+        console.log("Remaining queue" + room.memory.spawn_queue)
+    }
+
+    clear_queue(room)
+    {
+        while(room.memory.spawn_queue.length > 0)
+            this.pop_queue(room)
     }
 
     /// Update required population for specified recipe
@@ -446,7 +482,7 @@ class HoP
         
         for(var h in this.helpers)
         {
-            this.helpers[h].check_population()
+            this.helpers[h].check_population(room.memory.spawn_queue)
         }
         /// Check if spawn queue is empty
         if(room.memory.spawn_queue.length == 0)
@@ -511,7 +547,7 @@ class HoP
             console.log("Can create new "+name)
             break;
         case ERR_NOT_ENOUGH_ENERGY:
-            //console.log("Not enough energy for "+name)
+            console.log("Not enough energy for "+name)
             break;
         case ERR_NAME_EXISTS:
             console.log("Name "+ desc.unique_name + " already exists")
@@ -538,7 +574,7 @@ class HoP
                 /// Really created a creep
                 var creep = Game.creeps[result]
                 //helper.initializer(creep)
-                helper.creep_created(creep, desc)
+                helper.creep_created(room, creep, desc)
                 room.memory.spawn_queue.pop()
             }
             else
