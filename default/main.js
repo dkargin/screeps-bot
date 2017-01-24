@@ -1,3 +1,8 @@
+var memoryUtils = require('memory')
+var roomUtils = require('utils.room')
+
+
+
 var lastIndex = 0;
 
 function getRandomFreePos(startPos, distance) {
@@ -36,17 +41,9 @@ Spawn.prototype.test = function() {
     console.log("Hello world");
 }
 
-HoP = require('spawner')
+var HoP = require('spawner')
 
-var controllers = 
-{ 
-    harvester : require('role.harvester'),
-    upgrader : require('role.upgrader'),
-    mover : require('role.mover'),
-    expedition : require('role.expedition')
-}
-
-run_tower = function(tower)
+var run_tower = function(tower)
 {
     //console.log("Updating tower "+ tower)
     var closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
@@ -64,10 +61,19 @@ run_tower = function(tower)
     }
 }
 
+var controllers = 
+{ 
+    harvester : require('role.harvester'),
+    upgrader : require('role.upgrader'),
+    mover : require('role.mover'),
+//    expedition : require('role.expedition')
+}
+
 var firstTick = true
 
 module.exports.loop = function () 
 {
+    /*
     if(firstTick)
     {
         firstTick = false;
@@ -75,8 +81,6 @@ module.exports.loop = function ()
             controllers[u].init_recipes(HoP)
         }
     }
-
-    HoP.check_population()
 
     for(var i in Game.flags)
     {
@@ -148,5 +152,5 @@ module.exports.loop = function ()
     }
 
 
-    build(spawn, STRUCTURE_EXTENSION);
+    build(spawn, STRUCTURE_EXTENSION);*/
 }

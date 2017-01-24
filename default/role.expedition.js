@@ -2,7 +2,7 @@
 var ROLE_EXPEDITION = "expedition"
 var SUBROLE_CLAIMER = "claimer"
 
-init_claimer = function(creep_memory)
+var init_claimer = function(creep_memory)
 {
     console.log("Initializing upgrader system for")
     creep_memory.role = ROLE_EXPEDITION
@@ -34,18 +34,8 @@ class Expedition
 
     get_info(room_name)
     {
-        var info
         if(!(room_name in Memory.expedition))
-        {
-            info = { creep: "", hostile : false, owned: false}
-            Memory.expedition[room_name] = info
-        }
-        else
-            info = Memory.expedition[room_name]
-        
-        if(room_name in Game.rooms && Game.rooms[room_name].controller.my)
-            info.owned = true
-
+            Memory.expedition[room_name] = { creep: "", hostile : false}
         return Memory.expedition[room_name]
     }
     /// @param {Room} room)
@@ -83,7 +73,7 @@ class Expedition
         for(var r in Memory.expedition)
         {
             var info = Memory.expedition[r]
-            if(!('claimer' in info) && !info.owned)
+            if(!('claimer' in info) )
             {
                 info.claimer = creep.id
                 console.log("Creep "+ creep.id + " is going to claim room "+r)
@@ -98,7 +88,7 @@ class Expedition
 
         if(!creep.memory.target)
         {
-            var target = this.find_target(creep)
+            var target = this.find_target()
             if(target)
             {
                 creep.memory.target = target   
@@ -111,42 +101,14 @@ class Expedition
 
         if(creep.memory.target)
         {
-            if(creep.memory.target == 'W8N2')
-                creep.memory.target = 0
             if(creep.room.name == creep.memory.target)
             {
-                if(!creep.memory.entered)
-                {
-                    //creep.moveto(new RoomPosition(25,25, creep.room.target))
-                    creep.moveTo(25,25)
-                    creep.memory.entered = 1
-                }
-                console.log("CLAIMer arrived to a target room "+creep.memory.target + " creep.room="+creep.room)
-                var controller = creep.room.controller
-                console.log("Found controller = " + controller + " pos=", controller.pos)
-
-
-                var res = creep.claimController(creep.room.controller)
-                if( res != OK){
-                    creep.moveTo(creep.room.controller)
-                    console.log("Controller is too far, err="+res)
-                }
-                /*
-                var target = creep.pos.findClosestByPath(STRUCTURE_CONTROLLER)
-                if(target)
-                {
-                    if(creep.claimController(creep.memory.target) == ERR_NOT_IN_RANGE) {
-                        creep.moveTo(target);
-                    }
-                }*/
-                //
+                console.log("CLAIMer arrived to a target room")
+                //creep.room.find()
             }
             else
             {
-                var exits = creep.room.findExitTo(creep.memory.target)
-                var exit = creep.pos.findClosestByPath(exits);
-                creep.moveTo(exit);
-                //creep.moveTo(creep.memory.target)
+                creep.moveTo(room)
             }
         }
 	}

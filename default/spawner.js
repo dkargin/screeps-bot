@@ -1,5 +1,7 @@
+var Actions = require('utils.action')
+
 /// Unpacks recipe from compact definition
-unpack_recipe = function(packed_recipe)
+var unpack_recipe = function(packed_recipe)
 {
     var result = []
     for(var t in packed_recipe)
@@ -15,7 +17,7 @@ unpack_recipe = function(packed_recipe)
 }
 
 /// Takes recipe in form [work, work, carry, move] and returns in form {work:2, carry:1, move:1}
-pack_recipe = function(recipe)
+var pack_recipe = function(recipe)
 {
     var packed = {}
     for(var i in recipe)
@@ -29,40 +31,7 @@ pack_recipe = function(recipe)
     return packed
 }
 
-Room.prototype.pack_recipe = function(recipe)
-{
-    return pack_recipe(recipe)
-}
-
-Room.prototype.unpack_recipe = function(recipe)
-{
-    return unpack_recipe(recipe)
-}
-
-/// Removes all the flags in a room
-Room.prototype.clear_flags = function()
-{
-    for(var i in Game.flags)
-    {
-        var flag = Game.flags[i]
-        if (flag.pos.roomName = this.name)
-            flag.remove()
-    }
-}
-
-Room.prototype.print_queue = function()
-{
-    console.log(this.get_queue())
-}
-
-// Return production queue
-Room.prototype.get_queue = function()
-{
-    return (this.memory.spawn_queue = this.memory.spawn_queue || [])
-}
-
-
-print_bp_costs = function()
+var print_bp_costs = function()
 {
     for(var body in BODYPART_COST)
     {
@@ -71,7 +40,7 @@ print_bp_costs = function()
 }
 
 /// Get recipe cost for packed blueprint
-get_recipe_cost = function(packed_bp)
+var get_recipe_cost = function(packed_bp)
 {
     var cost = 0
     for(var part in packed_bp)
@@ -84,7 +53,7 @@ get_recipe_cost = function(packed_bp)
     return parseInt(cost)
 }
 
-generate_simple_recipe = function(bp, max_cost)
+var generate_simple_recipe = function(bp, max_cost)
 {
     max_cost = parseInt(max_cost, 10)
     //console.log("Running simple recipe generator, max_cost="+max_cost)
@@ -115,13 +84,50 @@ generate_simple_recipe = function(bp, max_cost)
     return { name:name, blueprint:unpack_recipe(best) }
 }
 
-make_simple_generator = function(name, bp)
+var make_simple_generator = function(name, bp)
 {
     //console.log("Making simple blueprint generator for type="+name)
     return function(cost)
     {
         return generate_simple_recipe(bp, cost)  
     };
+}
+
+Creep.prototype.recycle = function()
+{
+    //this.pos.
+    var targets = this.room.find(FIND_STRUCTURES, {
+        filter: (structure) => {
+            return structure.structureType == STRUCTURE_SPAWN
+        }   
+    });
+    if(targets.length > 0)
+    {
+        if(targets[0].recycleCreep(this) == ERR_NOT_IN_RANGE)
+        {
+            this.moveTo(targets[0])
+        }
+    }
+}
+
+Room.prototype.clear_flags = function()
+{
+    for(var i in Game.flags)
+    {
+        var flag = Game.flags[i]
+        if (flag.pos.roomName = this.name)
+            flag.remove()
+    }
+}
+
+Room.prototype.mass_suicide = function()
+{
+
+}
+
+Spawn.prototype.clear_flags = function()
+{
+    this.room.clear_flags()
 }
 
 /// Wraps up recipe call
@@ -135,6 +141,7 @@ class RecipeHelper
     // @param initializer - function is called when creep is going to be spawned
     constructor(name, generator, initializer)
     {
+        Actions.test_fn()
         this.name = name
         this.generator = generator
         this.initializer = initializer
@@ -237,7 +244,7 @@ class RecipeHelper
     }
 
     /// Check recipe population
-    check_population(room)
+    check_population(queue)
     {
         var info = this.get_info()
         var dead = []
@@ -266,15 +273,6 @@ class RecipeHelper
                 info.free_index.push(dead[i])
             }
         }
-
-        var queue = room.get_queue()
-
-        for(var r in queue)
-        {
-            recipe = queue[r]
-            if(recipe == this.name)
-                this.enqueued++
-        }
     }
 
     /// Add creep name to population
@@ -286,6 +284,7 @@ class RecipeHelper
         info.last_created++
     }
 }
+
 
 /// `Head of personnel` manager class (yup ss13)
 ///  - Keeps creep spawn queue for specified spawn
@@ -337,6 +336,16 @@ class HoP
             controller.addRecipe(recipe, generator)
         }
         
+        Room.prototype.print_queue = function()
+        {
+            console.log(this.memory.spawn_queue)
+        }
+
+        Spawn.prototype.print_queue = function()
+        {
+            console.log(this.room.memory.spawn_queue)
+        }
+
         Room.prototype.population_available = function(recipe)
         {
             return controller.population_available(recipe)
@@ -379,23 +388,6 @@ class HoP
         this.helpers[name] = helper
     }
 
-    check_population()
-    {
-        /// 1. Reset queue
-        for(var h in this.helpers)
-        {
-            var info = this.helpers[h].get_info()
-            info.queued = 0
-        }
-
-        /// 2. Refill queued tasks
-        for(var r in Game.rooms)
-        {
-            for(var h in this.helpers)
-                this.helpers[h].check_population(Game.rooms[r])
-        }
-    }
-
     /// Get queue length
     getLength(spawn)
     {
@@ -429,8 +421,7 @@ class HoP
         var helper = this.helpers[recipe]
         if(!helper)
         {
-            console.log("ERROR: No recipe helper for "+recipe)
-            return false
+            console.log("ERROR: No recipe helper for "+name)
         }
 
         console.log("Adding recipe "+recipe+" to room "+ room.name)
@@ -481,7 +472,12 @@ class HoP
         {
             room.memory.spawn_queue = []
         }
-                /// Check if spawn queue is empty
+        
+        for(var h in this.helpers)
+        {
+            this.helpers[h].check_population(room.memory.spawn_queue)
+        }
+        /// Check if spawn queue is empty
         if(room.memory.spawn_queue.length == 0)
         {
             //console.log("Spawn queue for room" + room.name + " is empty")
@@ -493,10 +489,11 @@ class HoP
             this.process_spawn(Game.spawns[i], Game.spawns[i].room)
         }
     }
-
+    
     /// Get best recipe descriptor
     get_best_recipe_desc(room, blueprint)
     {
+        
         var helper = this.helpers[blueprint]
         if(!helper)
         {

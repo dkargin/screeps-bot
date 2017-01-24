@@ -15,7 +15,7 @@ var AIState =
     MoveRecycle: 12,    /// Return to be recycled
 }
 
-init_drill = function(creep_memory)
+var init_drill = function(creep_memory)
 {
     console.log("Initializing drill system for")
     creep_memory.role = "harvester"
@@ -25,70 +25,6 @@ Room.prototype.has_movers = function()
 {
     return true    
 }
-
-Object.defineProperty(Source.prototype, 'memory', {
-    get: function() {
-        if(_.isUndefined(Memory.sources)) {
-            Memory.sources = {};
-        }
-        if(!_.isObject(Memory.sources)) {
-            return undefined;
-        }
-        return Memory.sources[this.id] = Memory.sources[this.id] || {};
-    },
-    set: function(value) {
-        if(_.isUndefined(Memory.sources)) {
-            Memory.sources = {};
-        }
-        if(!_.isObject(Memory.sources)) {
-            throw new Error('Could not set source memory');
-        }
-        Memory.sources[this.id] = value;
-    }
-});
-
-Object.defineProperty(StructureContainer.prototype, 'memory', {
-    get: function() {
-        if(_.isUndefined(Memory.containers)) {
-            Memory.containers = {};
-        }
-        if(!_.isObject(Memory.containers)) {
-            return undefined;
-        }
-        return Memory.containers[this.id] = Memory.containers[this.id] || {};
-    },
-    set: function(value) {
-        if(_.isUndefined(Memory.containers)) {
-            Memory.containers = {};
-        }
-        if(!_.isObject(Memory.containers)) {
-            throw new Error('Could not set source memory');
-        }
-        Memory.containers[this.id] = value;
-    }
-});
-
-
-Object.defineProperty(StructureStorage.prototype, 'memory', {
-    get: function() {
-        if(_.isUndefined(Memory.storages)) {
-            Memory.storages = {};
-        }
-        if(!_.isObject(Memory.storages)) {
-            return undefined;
-        }
-        return Memory.storages[this.id] = Memory.storages[this.id] || {};
-    },
-    set: function(value) {
-        if(_.isUndefined(Memory.storages)) {
-            Memory.storages = {};
-        }
-        if(!_.isObject(Memory.storages)) {
-            throw new Error('Could not set source memory');
-        }
-        Memory.storages[this.id] = value;
-    }
-});
 
 class Harvester 
 {
@@ -110,7 +46,7 @@ class Harvester
         }
         
         for(var i in Game.spawns)
-            this.analyse_mines(Game.spawns[i])
+            Game.spawns[i].room.analyse_mines(Game.spawns[i].pos)
     }
 
 
@@ -137,106 +73,6 @@ class Harvester
         
         console.log("Initializing recipes for Harvester class")
         HoP.memorize_recipe_simple("miner", recipes_drill, init_drill)
-    }
-    
-    /** Will find and fill in mining spots **/
-    analyse_mines(spawn)
-    {
-        //console.log("Updating mine info")
-        var sources = spawn.room.find(FIND_SOURCES);
-        
-        var pos = spawn.pos
-        for(var i in sources)
-        {
-            var mine = sources[i]
-
-            if(!('storage' in mine.memory))
-                mine.memory.storage = 0
-
-            if(!('build_storage' in mine.memory))
-                mine.memory.build_storage = 0
-
-
-            var storage_sites = mine.pos.findInRange(FIND_STRUCTURES, 2, 
-            {
-                filter: { structureType: STRUCTURE_CONTAINER }
-            });
-
-            for(var s in storage_sites)
-            {
-                storage_sites[s].memory = storage_sites[s].memory || {}
-                storage_sites[s].memory.type = "source"                
-            }
-
-            console.log("Found "+storage_sites.length + " storage sites near mine " + mine.id)
-
-            var storage_build_sites = mine.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, 
-            {
-                filter: { structureType: STRUCTURE_CONTAINER }
-            });
-            console.log("Found "+storage_build_sites.length + " storage build sites near mine " + mine.id)
-            
-            if(mine.id in Memory.mine_info)
-               continue;
-            //if(!('user' in Memory.mine_info))
-            //    Memory.mine_info.user = {}
-            var path = pos.findPathTo(mine.pos)
-            var distance = path.length
-            
-            var spots = []
-            var max = 0
-            
-            if(path)
-            {
-                for(var x = mine.pos.x-1; x <= mine.pos.x+1; x++)
-                    for(var y = mine.pos.y-1; y <= mine.pos.y+1; y++)
-                    {
-                        if(x == mine.pos.x && y == mine.pos.y)
-                            continue;
-                        var spot_pos = new RoomPosition(x,y, mine.pos.roomName)
-                        var tile = Game.map.getTerrainAt(spot_pos)
-
-                        if(tile != 'wall')
-                        {
-                            spots.push(spot_pos)
-                            var res = mine.room.createFlag(spot_pos, "Minespot_"+x+":"+y)
-                            if(res == ERR_NAME_EXISTS)
-                            {
-                                
-                            }
-                            else
-                            {
-                                console.log("Created mine spot flag")
-                            }
-                        }
-                    }
-                max = spots.length
-            }
-            
-            var info = {
-                spots : spots,
-                distance : distance,
-                max : max,
-                current : 0,
-                users : {},
-            }   
-            
-            Memory.mine_info[mine.id] = info
-            
-        }
-        
-        
-        var total_harvesters = 0
-        for(var i in Memory.mine_info)
-        {
-            var info = Memory.mine_info[i]
-            var harvesters_per_mine = info.max + Math.round(info.distance / 4);
-            //console.log("Mine "+i+" needs "+harvesters_per_mine+" harvesters")
-            total_harvesters = total_harvesters+ 1 //harvesters_per_mine
-        }
-        //console.log("Need " + total_harvesters + " harvesters")
-        
-        Memory.need_harvesters = total_harvesters //Memory.mine_info.length
     }
     
     start_turn()

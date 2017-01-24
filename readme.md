@@ -40,7 +40,6 @@ Mover types
 
 
 ticks = 1200 / (600/body_size) = body_size / 2
-
 total = body_cost / 5
 
 Неправильно определяется число текущих юнитов по рецепту + количество в очереди
@@ -89,4 +88,6 @@ Mine res:
 	Need: Creep, 
 	Provides:
 
+# Problems #
 
+1. Harvester MoveTo ordered cases when target is available directly

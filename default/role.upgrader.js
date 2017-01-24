@@ -1,5 +1,5 @@
 
-init_upgrader = function(creep_memory)
+var init_upgrader = function(creep_memory)
 {
     console.log("Initializing upgrader system for")
     creep_memory.role = "upgrader"
@@ -34,7 +34,7 @@ class Upgrader
     
     check_spawn(spawn)
     {
-        console.log("Checking upgraders: " + this.upgraders)
+        //console.log("Checking upgraders: " + this.upgraders)
         
         if(spawn.population_available('upgrader') < 3)
         {

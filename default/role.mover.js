@@ -13,13 +13,13 @@ var AIState =
 var FEED_SPAWN = 'feed_spawn'
 var FEED_BASE = 'feed_base'
 
-init_mover_spawn = function(creep_memory)
+var init_mover_spawn = function(creep_memory)
 {
     creep_memory.role = 'mover'
     creep_memory.subrole = FEED_SPAWN
 }
 
-init_mover_base = function(creep_memory)
+var init_mover_base = function(creep_memory)
 {
     creep_memory.role = 'mover'
     creep_memory.subrole = FEED_BASE
