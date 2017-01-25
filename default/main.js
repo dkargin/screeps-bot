@@ -73,15 +73,16 @@ var firstTick = true
 
 module.exports.loop = function () 
 {
-    /*
+    
     if(firstTick)
     {
         firstTick = false;
+        /*
         for(var u in controllers) {
             controllers[u].init_recipes(HoP)
-        }
+        }*/
     }
-    
+    /*
     for(var i in Memory.creeps) {
         if(!Game.creeps[i]) {
             delete Memory.creeps[i];

@@ -110,16 +110,7 @@ Creep.prototype.recycle = function()
     }
 }
 
-Room.prototype.mass_suicide = function()
-{
-
-}
-
-Spawn.prototype.clear_flags = function()
-{
-    this.room.clear_flags()
-}
-
+/*
 /// Wraps up recipe call
 /// We need to keep:
 ///  - total recipe population
@@ -274,6 +265,7 @@ class RecipeHelper
         info.last_created++
     }
 }
+*/
 
 
 /// `Head of personnel` manager class (yup ss13)

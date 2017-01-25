@@ -30,13 +30,10 @@ class Mover
 {
     constructor() 
     {
-        Memory.drill_spots = []
         this.max_range = 1
         this.num_feed_spawn = 0
         this.num_feed_base = 0
         this.role = 'mover'
-
-        Memory.need_objects = 1
     }
     
     init_recipes(HoP)

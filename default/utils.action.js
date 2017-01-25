@@ -7,11 +7,10 @@
  * mod.thing == 'a thing'; // true
  */
  
-var ActionTypes = 
-{
-    
-}
+/// Dictionary for action class instances
+var ActionTypes = {}
 
+/// Action execution/check result
 var ActionResult = 
 {
     Active : 0,     // Action is still active
@@ -32,12 +31,27 @@ function check2str(check)
 }
 
 /// Generic template for all action types
+/**
+ * Memory layout
+ *  - each action keeps a record in memory: Memory.actions[name]
+ *  - unique name is generated using stored index, 
+*/
 class Action
 {
     constructor()
     {
+        this.memory.index = 0;
+        ActionTypes[this.name() = i]
     }
     
+    /// Attach an action to object or restore it
+    /// We are supposing that action queue is stored at obj.memory.actions[]
+    /// @param state
+    attach(obj, state)
+    {
+    }
+    
+    /*
     /// Check if action can be completed
     check(target)
     {
@@ -45,19 +59,90 @@ class Action
     }
     
     /// Return action name
-    name()
+    type(obj)
     {
         return "ActionTemplate"
     }
     
-    debug_name(obj)
+    active_name(obj)
     {
         return "ActionTemplate"
     }
-    
+    */
     
     /// Called by behaviour to update its initial state
     /// @returns next update tick
+    update(obj)
+    {
+        return 0
+    }
+    
+    /// Called when task is complete, to clean up internal state
+    clear(obj)
+    {
+    }
+}
+
+Object.defineProperty(Action.prototype, 'memory', {
+    get: function() {
+        if(_.isUndefined(Memory.actions)) {
+            Memory.actions = {};
+        }
+        if(!_.isObject(Memory.sources)) {
+            return undefined;
+        }
+        return Memory.sources[this.name()] = Memory.sources[this.name()] || {};
+    },
+    set: function(value) {
+        if(_.isUndefined(Memory.actions)) {
+            Memory.actions = {};
+        }
+        if(!_.isObject(Memory.actions)) {
+            throw new Error('Could not set source memory');
+        }
+        Memory.actions[this.name()] = value;
+    }
+});
+
+/// Generic template for all action types
+/*
+var desc = {name:"mover", role:"mover", body:[]}
+spawn.spawn(decs, link_event(self, ))
+*/
+
+class SpawnAction extends Action
+{
+    constructor()
+    {
+        super();
+    }
+    
+    /// Return action name
+    type()
+    {
+        return "ActionTemplate"
+    }
+    
+    active_name(obj)
+    {
+        return "ActionTemplate"
+    }
+    
+    assign(obj, recipe)
+    {
+        
+    }
+    
+    /// Check if action can be completed
+    check(obj)
+    {
+        var body = recipe.body
+        return ActionResult.Active
+    }
+    
+    /// Called by behaviour to update its initial state
+    /// @returns next update tick
+    /// @param {StructureSpawn} obj - spawn
     update(obj)
     {
         return 0
@@ -74,7 +159,7 @@ class Action
 /// Guides creep to a stationary target
 class MoveTo extends Action
 {
-    name()
+    type()
     {
         return "MoveTo"
     }
