@@ -21,20 +21,23 @@ work=2, store=1, move=1, s=4, 2 ticks per move
 
 
 res_per_move = store*50
-ticks_per_move = (2*(work+store+move)-move)/move = (2*(work+store)+move)/move = 1+2(work+store)/move
+ticks_per_move = (2*(work+store+move)-move)/2*move = (2*(work+store)+move)/2*move = 1/2+(work+store)/move
 
 cycle_time_total = 2*move_time + mine_time
 mine_time = 50*store / (2*work) = 25*store/work
 move_time = distance * ticks_per_move
 
-cycle_time_total = 2*distance*(1 + 2(work+store)/move) + 25*store/work
+cycle_time_total = 2*distance*(1 + 2(work+store)/2*move) + 25*store/work
 
-income(distance, work, store, move) = (res_per_move/cycle_time_total) =  50*store / (2*distance*(1 + 2(work+store)/move) + 25*store/work) = 50*store*work/(2*distance*work(1 + 2(work+store)/move) + 25*store)
+miner_income_rate(distance, work, store, move) = (res_per_move/cycle_time_total) =  50*store / (2*distance*(1 + 2(work+store)/move) + 25*store/work) 
+miner_income_rate(distance, work=2, store=1, move=1) = 50 / (2*distance(1+2(2+1)/1) + 25/2) = 100 / (4*distance*7 + 25)
 
-А можно это посчитать каким-нибудь symbolic python?
-dI/dStore = ...
-dI/dWork = ...
-dI/dMove = ...
+miner_income_rate(distance=0, work, store, move) = 50 / (2*distance(1+2(2+1)/1) + 25/2) = 100 / (4*distance*7 + 25)
+
+mover_income_rate(distance, store=1, move=1) = (res_per_move/cycle_time_total) = 50*store / (2*distance*(1 + 2*store/move))
+mover_income_rate(distance, store=3, move=3) = 2*work 
+
+При использовании оптимальной добычи получаем 16 ресурсов за тик с шахты. Их нужно отвозить примерно на той же скорости - в среднем не менее 16 за тик
 
 Сколько стоит поддержание работы склада?
 

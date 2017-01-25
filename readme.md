@@ -56,7 +56,9 @@ Mine res:
 # Problems #
 
 1. Harvester MoveTo ordered cases when target is available directly
-
+2. Mine deployment
+3. Personal management
+4. Renew/retire mechanics
 
 # Survival plan #
 
@@ -67,4 +69,3 @@ Controller 2lvl
 4. Spawn heavy builder
 
 
-worker - 

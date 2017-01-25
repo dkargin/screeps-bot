@@ -34,19 +34,8 @@ function check2str(check)
 /// Generic template for all action types
 class Action
 {
-    /// Return action name
-    name()
+    constructor()
     {
-        return "ActionTemplate"
-    }
-
-    /// Called to restore 
-    restore(obj) {}
-    
-    /// Get pretty action name, used for logging
-    pretty_name(obj)
-    {
-        return "ActionTemplate"
     }
     
     /// Check if action can be completed
@@ -54,7 +43,19 @@ class Action
     {
         return ActionResult.Active
     }
-
+    
+    /// Return action name
+    name()
+    {
+        return "ActionTemplate"
+    }
+    
+    debug_name(obj)
+    {
+        return "ActionTemplate"
+    }
+    
+    
     /// Called by behaviour to update its initial state
     /// @returns next update tick
     update(obj)
@@ -63,7 +64,10 @@ class Action
     }
     
     /// Called when task is complete, to clean up internal state
-    clear(obj) {}
+    clear(obj)
+    {
+        
+    }
 }
 
 /// MoveTo action
@@ -118,51 +122,6 @@ class MoveTo extends Action
     }
 }
 
-class BuildUnit
-{
-	/// Return action name
-    name()
-    {
-        return "ActionTemplate"
-    }
-
-    /// Called to restore 
-    restore(obj)
-    {
-
-    }
-
-    /// Create 
-    assign(obj, design, on_complete, on_failed)
-    {
-    	
-    }
-    
-    /// Get pretty action name, used for logging
-    pretty_name(obj)
-    {
-        return "ActionTemplate"
-    }
-    
-    /// Check if action can be completed
-    check(target)
-    {
-        return ActionResult.Active
-    }
-
-    /// Called by behaviour to update its initial state
-    /// @returns next update tick
-    update(obj)
-    {
-        return 0
-    }
-    
-    /// Called when task is complete, to clean up internal state
-    clear(obj)
-    {
-        
-    }
-}
 /// Generic action queue
 class ActionQueue
 {

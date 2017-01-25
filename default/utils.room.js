@@ -7,7 +7,25 @@
  * mod.thing == 'a thing'; // true
  */
  
- 
+function list_free_spots(pos)
+{
+    var spots = []
+    
+    for(var x = pos.x-1; x <= pos.x+1; x++)
+        for(var y = pos.y-1; y <= pos.y+1; y++)
+        {
+            if(x == pos.x && y == pos.y)
+                continue;
+            var spot_pos = new RoomPosition(x,y, mine.pos.roomName)
+            var tile = Game.map.getTerrainAt(spot_pos)
+
+            if(tile != 'wall')
+            {
+                spots.push(spot_pos)
+            }
+        }
+    return spots
+}
 /** Will find and fill in mining spots **/
 /** @param (RoomPosition) pos - central position **/
 Room.prototype.analyse_mines=function(pos)
@@ -46,18 +64,20 @@ Room.prototype.analyse_mines=function(pos)
         });
         console.log("Found "+storage_build_sites.length + " storage build sites near mine " + mine.id)
         
-        if(mine.id in Memory.mine_info)
-           continue;
-        //if(!('user' in Memory.mine_info))
-        //    Memory.mine_info.user = {}
+       
         var path = pos.findPathTo(mine.pos)
         var distance = path.length
         
         var spots = []
         var max = 0
+        var storage_pos
         
         if(path)
         {
+            var finish = path[path.length-2];
+            storage_pos = new RoomPosition(finish.x, finish.y, pos.roomName)
+            
+            /*
             for(var x = mine.pos.x-1; x <= mine.pos.x+1; x++)
                 for(var y = mine.pos.y-1; y <= mine.pos.y+1; y++)
                 {
@@ -79,19 +99,20 @@ Room.prototype.analyse_mines=function(pos)
                             console.log("Created mine spot flag")
                         }
                     }
-                }
+                }*/
             max = spots.length
         }
         
-        var info = {
-            spots : spots,
+        var info = 
+        {
             distance : distance,
             max : max,
-            current : 0,
-            users : {},
+            miners : [],
+            movers : [],
+            storage_pos : storage_pos,
         }   
         
-        Memory.mine_info[mine.id] = info
+        mine.memory = _.merge(mine.memory, info)
         
     }
     
@@ -123,10 +144,18 @@ var getObjectPos=function(obj)
     if(obj instanceof RoomPosition)
         return obj
 
-    if('pos' in obj && obj.pos instanceof RoomPosition)
+    if(obj instanceof Creep)
+        return obj.pos
+    
+    if(obj instanceof StructureSpawn)
         return obj.pos
 
-    
+    if(obj instanceof Source)
+        return obj.pos
+
+    if(obj instanceof StructureStorage)
+        return obj.pos
+
     throw("Cannot get position from unknown object"+obj)
 }
 /** 
