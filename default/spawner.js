@@ -110,16 +110,6 @@ Creep.prototype.recycle = function()
     }
 }
 
-Room.prototype.clear_flags = function()
-{
-    for(var i in Game.flags)
-    {
-        var flag = Game.flags[i]
-        if (flag.pos.roomName = this.name)
-            flag.remove()
-    }
-}
-
 Room.prototype.mass_suicide = function()
 {
 

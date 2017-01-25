@@ -32,19 +32,17 @@ class Harvester
     {
         this.sources = []
         this.source_spots = []
-        Memory.drill_spots = []
         this.max_range = 1
         this.harvesters = 0
         this.role = 'harvester'
         this.localBuild = true
-        Memory.need_harvesters = 1
-        Memory.last_harvester = 0
         
+        /*
         if(!('mine_info' in Memory))
         {
             Memory.mine_info = {}
         }
-        
+        */
         for(var i in Game.spawns)
             Game.spawns[i].room.analyse_mines(Game.spawns[i].pos)
     }

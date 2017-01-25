@@ -81,15 +81,6 @@ module.exports.loop = function ()
             controllers[u].init_recipes(HoP)
         }
     }
-
-    for(var i in Game.flags)
-    {
-        var flag = Game.flags[i]
-        if(!flag.memory)
-            flag.memory = {}
-        if(!flag.memory.role)
-            flag.memory.role = "none"
-    }
     
     for(var i in Memory.creeps) {
         if(!Game.creeps[i]) {
@@ -127,18 +118,18 @@ module.exports.loop = function ()
         if(creep.memory.role in controllers)
             controllers[role].run(creep)
     }    
-
-    
+    */
     
     for(var s in Game.spawns)
     {
         var spawn = Game.spawns[s]    
 
+/*
         for(var i in controllers)
         {
             controllers[i].check_spawn(spawn)
         }
-
+*/
         if(!spawn.spawning)
         {
             var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1)
@@ -152,5 +143,5 @@ module.exports.loop = function ()
     }
 
 
-    build(spawn, STRUCTURE_EXTENSION);*/
+    //build(spawn, STRUCTURE_EXTENSION);
 }

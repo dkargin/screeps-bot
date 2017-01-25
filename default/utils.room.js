@@ -108,24 +108,25 @@ Room.prototype.analyse_mines=function(pos)
     Memory.need_harvesters = total_harvesters //Memory.mine_info.length
 }
 
+Room.prototype.remove_flags = function()
+{
+    for(var i in Game.flags)
+    {
+        var flag = Game.flags[i]
+        if (flag.pos.roomName = this.name)
+            flag.remove()
+    }
+}
 
 var getObjectPos=function(obj)
 {
-    //if(obj instanceof RoomPosition)
-    //    return obj
+    if(obj instanceof RoomPosition)
+        return obj
 
-    //if(obj instanceof Creep)
-    //    return obj.pos
+    if('pos' in obj && obj.pos instanceof RoomPosition)
+        return obj.pos
+
     
-    if(obj instanceof StructureSpawn)
-        return obj.pos
-
-    if(obj instanceof StructureSource)
-        return obj.pos
-
-    if(obj instanceof StructureStorage)
-        return obj.pos
-
     throw("Cannot get position from unknown object"+obj)
 }
 /** 
@@ -141,19 +142,25 @@ Room.prototype.make_road = function(from, to, skip)
     var path = pos_from.findPathTo(pos_to)
     if(path.length > 0)
     {
-        for(var i = 0; i < path.length - skip; i++)
+        for(var i = 0; i < path.length - skip - 1; i++)
         {
             var wp = path[i]
-            createConstructionSite(wp.x, wp.y, structureType)
+            this.createConstructionSite(wp.x, wp.y, STRUCTURE_ROAD)
         }
+        
+        var last_wp = path[path.length-2]
+        
+        return new RoomPosition(last_wp.x, last_wp.y, pos_to.roomName)
     }
 }
 
 /// Connect room spawn with mines
 Room.prototype.net_mines = function()
 {
-    var mines = this.find(FIND_STRUCTURES, filter = {structureType : STRUCTURE_SOURCE})
-    var spawns = this.find(FIND_STRUCTURES, filter = {structureType : STRUCTURE_SPAWN})
+    var mines = this.find(FIND_SOURCES)
+    var spawns = this.find(FIND_STRUCTURES, {filter : {structureType : STRUCTURE_SPAWN}})
+    
+    var ends = []
     
     if(spawns.length > 0 && mines.length > 0)
     {
@@ -161,11 +168,17 @@ Room.prototype.net_mines = function()
         for(var i in mines)
         {
             var mine = mines[i]
-            this.make_road(spawn, mine, 1)
+            ends.push(this.make_road(spawn, mine, 1))
+        }
+    }
+    if(ends.length > 0)
+    {
+        for(var i in ends)
+        {
+            this.createConstructionSite(ends[i], STRUCTURE_CONTAINER)
         }
     }
 }
-
 
 Room.prototype.remove_build_sites = function()
 {
