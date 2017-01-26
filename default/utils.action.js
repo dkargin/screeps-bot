@@ -21,6 +21,21 @@ var ActionResult =
     Empty : 5       // o action
 }
 
+/// Storage for action event handlers
+/// Each event handler register itself in this table
+/// To make it possible to restore event link after VM restart, both event caller 
+/// and a handler keep unique event key. During 'restoration' process handler 
+/// places again its function to this table
+var ActionHandlers = {}
+
+/// Call the event by specified hadler key
+function raiseEvent(handler_key, data)
+{
+    var fn = ActionHandlers[handler_key]
+    if(fn)
+        fn(data)
+}
+
 /// Convert integer action check result to a string
 function check2str(check)
 {
@@ -128,9 +143,11 @@ class SpawnAction extends Action
         return "ActionTemplate"
     }
     
-    assign(obj, recipe)
+    /// Add recipt to a queue
+    assign(obj, recipe, eventComplete, eventFailed)
     {
-        
+        this.memory.eventComplete = eventComplete
+        this.memory.eventFailed = eventFailed
     }
     
     /// Check if action can be completed
@@ -139,7 +156,6 @@ class SpawnAction extends Action
         var body = recipe.body
         return ActionResult.Active
     }
-    
     /// Called by behaviour to update its initial state
     /// @returns next update tick
     /// @param {StructureSpawn} obj - spawn
@@ -216,20 +232,19 @@ class ActionQueue
     }
 }
 
-module.exports = class
+module.exports =
 {
-    addType(type)
+    addType : function(type)
     {
         var name = type.name()
         ActionTypes[name] = type
-    }
+    },
     /// Get action for specified type
-    getType(type)
+    getType : function(type)
     {
         return ActionTypes[type]
-    }
-    
-    update_task(obj)
+    },
+    update_task: function(obj)
     {
         if(!obj.memory.action)
         {
@@ -246,11 +261,26 @@ module.exports = class
                 exit = true;
                 break;
         }
-    }
+    }, 
     
     /// Restore action from a memory
-    restore(object)
+    restore : function(object)
     {
         
+    },
+    
+    EventHandler : class {
+        constructor()
+        {
+            
+        }
+        
+        /// Register event handler.
+        /// @returns event key
+        registerEvent(handler)
+        {
+            var index = Memory.events.last_handler++
+            var key = "Event#"+index
+        }
     }
 };

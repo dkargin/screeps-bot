@@ -43,8 +43,6 @@ class Harvester
             Memory.mine_info = {}
         }
         */
-        for(var i in Game.spawns)
-            Game.spawns[i].room.analyse_mines(Game.spawns[i].pos)
     }
 
 

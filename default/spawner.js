@@ -272,6 +272,8 @@ class RecipeHelper
 ///  - Keeps creep spawn queue for specified spawn
 ///  - Checks current population for each recipe and spawns additional creeps if needed
 
+
+
 /// This class is singleton-like. Only one instance should exist
 class HoP
 {
@@ -289,11 +291,7 @@ class HoP
         for(var s in Game.spawns)
         {
             var room = Game.spawns[s].room
-            
-            if(!room.memory.spawn_queue)
-            {
-                room.memory.spawn_queue = []
-            }
+            room.memory.spawn_queue = room.memory.spawn_queue || []
         }
         
         var controller = this

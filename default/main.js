@@ -1,6 +1,6 @@
 var memoryUtils = require('memory')
 var roomUtils = require('utils.room')
-
+var Corps = require('corporation')
 
 
 var lastIndex = 0;
@@ -77,6 +77,9 @@ module.exports.loop = function ()
     if(firstTick)
     {
         firstTick = false;
+        
+        for(var i in Game.spawns)
+            Game.spawns[i].room.analyse_mines(Game.spawns[i].pos)
         /*
         for(var u in controllers) {
             controllers[u].init_recipes(HoP)
