@@ -69,11 +69,72 @@ var controllers =
 //    expedition : require('role.expedition')
 }
 
+/// Simple behaviours from tutorial
+var simpleBehaviours =
+{
+	'simple.builder' : require('simple.builder'),
+	'simple.upgrader' : require('simple.upgrader'),
+	'simple.miner' : require('simple.miner')
+}
+
 var firstTick = true
+
+function simple_ai()
+{
+	console.log("Processing simple AI")
+	var population = {}
+	
+	for(var c in simpleBehaviours)
+	{
+	    population[c] = 0
+	}
+	/// Process simple behaviours
+    for(var c in Game.creeps) 
+    {
+    	var obj = Game.creeps[c]
+    	console.log(c, Game.creeps[c])
+    	if(!obj)
+    	    continue
+    	var role = obj.memory.role
+    	if(obj && obj.memory.role in simpleBehaviours)
+		{
+		    var role =  obj.memory.role
+    		simpleBehaviours[role].run(obj)
+    		population[role] = population[role] || 0
+    		population[role] ++
+		}
+    }
+	
+	for(var role in population)
+	{
+		var pop = population[role]
+		var controller = simpleBehaviours[role]
+		
+		//console.log("Role="+role+" has pop=" +pop + " req="+ controller.required)
+		if(pop < controller.required)
+		{
+		   
+			var spawn = Game.spawns.Spawn1 
+			var desc = controller.spawn()
+			var name = spawn.new_name(role) 
+			
+			var result = spawn.createCreep(desc.body, name, desc.mem)
+			if(_.isString(result)) 
+			{
+			    console.log("Spawned role="+role+" name="+name+" desc.name="+desc.role + " body=" + desc.body)
+				spawn.next_name()
+				break
+			}
+			else
+			{
+			    //console.log("Failed to spawn="+result)
+			}
+		}
+	}
+}
 
 module.exports.loop = function () 
 {
-    
     if(firstTick)
     {
         firstTick = false;
@@ -87,7 +148,10 @@ module.exports.loop = function ()
         }*/
     }
     
-    Corps.update()
+    simple_ai()
+    
+    //Corps.update()
+    
     /*
     for(var i in Memory.creeps) {
         if(!Game.creeps[i]) {

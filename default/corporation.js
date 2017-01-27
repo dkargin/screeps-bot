@@ -258,7 +258,7 @@ class MineCorp extends Actions.MetaObject
     /// Event handler for created worker
     on_spawned_worker(obj)
     {
-        console.log("MineCorp"+this.corp_name()+" got new workerl")
+        console.log("MineCorp"+this.corp_name()+" got new worker")
     }
     
     update()
@@ -268,7 +268,7 @@ class MineCorp extends Actions.MetaObject
         this.check_personnel()
         var room = this.get_room()
         
-        if(!this.memory.drill)
+        if(!this.memory.drill && !this.memory.drill_queued)
         {
             console.log("Spawning a drill for the mine corp" + name)
             var recipe =
@@ -283,6 +283,7 @@ class MineCorp extends Actions.MetaObject
             }
             
             var res = room.enqueue(recipe, this.event(this.on_spawned_drill))
+            console.log(res)
         }
         else if(!this.check_movers_enough())
         {

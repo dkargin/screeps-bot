@@ -129,7 +129,7 @@ var desc = {name:"mover", role:"mover", body:[]}
 spawn.spawn(decs, link_event(self, ))
 */
 
-class SpawnAction extends Action
+class ActionSpawn extends Action
 {
     constructor(obj, data, event)
     {
@@ -316,6 +316,8 @@ module.exports =
          * The rest of the fields contain task-specific data
          */
         obj.memory.action_queue.push(action)
+        
+        return action
     },
     /// Get first task
     taskqueue_first : function(obj)

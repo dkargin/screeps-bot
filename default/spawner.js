@@ -138,12 +138,11 @@ Room.prototype.enqueue = function(desc, handler)
 
     if(this.memory.spawn_queue.length >= 5)
     {
-    	return false    
+    	return
     }
     
     var action = new Actions.Spawn(desc, handler)
-    this.memory.spawn_queue.push(desc)
-    return true
+    return Actions.taskqueue_add(this, action)
 }
 
 Spawn.prototype.enqueue = function(recipe)
@@ -159,6 +158,16 @@ Room.prototype.print_queue = function()
 Spawn.prototype.print_queue = function()
 {
     console.log(this.room.memory.spawn_queue)
+}
+
+Spawn.prototype.new_name = function(base)
+{
+	return base + "#" + Memory.last_object_id
+}
+
+Spawn.prototype.next_name = function()
+{
+	Memory.last_object_id++
 }
 
 
