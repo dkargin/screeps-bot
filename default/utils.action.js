@@ -7,6 +7,8 @@
  * mod.thing == 'a thing'; // true
  */
  
+Mem = require('memory') 
+
 /// Dictionary for action class instances
 var ActionTypes = {}
 
@@ -232,6 +234,44 @@ class ActionQueue
     }
 }
 
+class MetaObject
+{
+    constructor()
+    {
+        
+    }
+    
+    /// Register event handler.
+    /// @returns event key
+    registerEvent(handler)
+    {
+        var index = Memory.events.last_handler++
+        var key = "Event#"+index
+    }
+}
+
+Object.defineProperty(MetaObject.prototype, 'memory', {
+    get: function() {
+        if(_.isUndefined(Memory.mobjects)) {
+            Memory.mobjects = {};
+        }
+        if(!_.isObject(Memory.mobjects)) {
+            return undefined;
+        }
+        return Memory.mobjects[this.name] = Memory.mobjects[this.name] || {};
+    },
+    set: function(value) {
+        if(_.isUndefined(Memory.mobjects)) {
+            Memory.mobjects = {};
+        }
+        if(!_.isObject(Memory.mobjects)) {
+            throw new Error('Could not set source memory');
+        }
+        Memory.mobjects[this.name] = value;
+    }
+});
+
+
 module.exports =
 {
     addType : function(type)
@@ -269,18 +309,6 @@ module.exports =
         
     },
     
-    EventHandler : class {
-        constructor()
-        {
-            
-        }
-        
-        /// Register event handler.
-        /// @returns event key
-        registerEvent(handler)
-        {
-            var index = Memory.events.last_handler++
-            var key = "Event#"+index
-        }
-    }
+    MetaObject : MetaObject
 };
+

@@ -79,12 +79,15 @@ module.exports.loop = function ()
         firstTick = false;
         
         for(var i in Game.spawns)
-            Game.spawns[i].room.analyse_mines(Game.spawns[i].pos)
+            Game.spawns[i].room.analyse_mines(Game.spawns[i])
+            
         /*
         for(var u in controllers) {
             controllers[u].init_recipes(HoP)
         }*/
     }
+    
+    Corps.update()
     /*
     for(var i in Memory.creeps) {
         if(!Game.creeps[i]) {

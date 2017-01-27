@@ -6,6 +6,20 @@
  * var mod = require('memory');
  * mod.thing == 'a thing'; // true
  */
+ 
+/// @param objects - array of object ids
+/// @returns array of objects that are still alive
+Game.check_alive = function(objects)
+{
+    var alive = []
+    for(var i in objects)
+    {
+        var obj = Game.getObjectById(objects[i])
+        if(obj)
+            movers.push(ob)
+    }
+    return alive
+}
 
 
 Object.defineProperty(Source.prototype, 'memory', {

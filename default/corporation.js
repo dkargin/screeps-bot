@@ -17,49 +17,17 @@ var CorporationTypes = {}
 /// Storage for corporation instances
 var Corporations = {}
 
-class Corp extends Actions.EventHandler
+check_alive = function(objects)
 {
-    constructor()
+    var alive = []
+    for(var i in objects)
     {
-        super()
-        
-        Corporations[this.name()] = this
+        var obj = Game.getObjectById(objects[i])
+        if(obj)
+            movers.push(ob)
     }
-    /// @param objects - array of object ids
-    /// @returns array of objects that are still alive
-    check_alive(objects)
-    {
-        var alive = []
-        for(var i in objects)
-        {
-            var obj = Game.getObjectById(objects[i])
-            if(obj)
-                movers.push(ob)
-        }
-        return alive
-    }
+    return alive
 }
-
-Object.defineProperty(Corp.prototype, 'memory', {
-    get: function() {
-        if(_.isUndefined(Memory.corporations)) {
-            Memory.corporations = {};
-        }
-        if(!_.isObject(Memory.corporations)) {
-            return undefined;
-        }
-        return Memory.corporations[this.name()] = Memory.corporations[this.name()] || {};
-    },
-    set: function(value) {
-        if(_.isUndefined(Memory.corporations)) {
-            Memory.corporations = {};
-        }
-        if(!_.isObject(Memory.corporations)) {
-            throw new Error('Could not set source memory');
-        }
-        Memory.corporations[this.name()] = value;
-    }
-});
 
 /// Mining corporation
 /** 
@@ -67,17 +35,20 @@ Object.defineProperty(Corp.prototype, 'memory', {
  * - miner
  * - storage nearby the mine
 **/
-class MineCorp extends Corp
+class MineCorp extends Actions.MetaObject
 {
-    constructor(mine_id, unload_obj)
+    constructor(mine, unload_obj)
     {
-        super()
+        var name = "MineCorp" + mine.id
+        super(name)
         
-        this.memory.mine_id = mine_id
+        Corporations[name] = this
         
+        this.name = name
         
+        this.memory.mine_id = mine.id
         
-        this.memory.unload_obj = unload_obj
+        this.memory.unload_id = unload_obj.id
         // Identifier of drill creep
         this.memory.drill = this.memory.drill || "" 
         // Intermediate storage for a drill
@@ -88,27 +59,30 @@ class MineCorp extends Corp
         /// Arraty of simple workers. They do the stuff in first period of the game
         /// Later they are replaced by a drill creeps
         this.memory.workers = this.memory.workers || []
+        /// Mine starts paused. Main manager decides when to activate specific mine
+        this.memory.paused = this.memory.paused || true
+        /// Contains current storage state
+        this.memory.storage = 0
         
         this.check_path()
     }
     
+    /// Check precompiled paths
     check_path()
     {
-        var path_to = this.memory.path_to
-        if(!path_to)
-        {
-            
-        }
+        /// TODO: implement precompiled paths when CPU limit will be near
     }
     
-    name()
+    /// Get corporation name
+    corp_name()
     {
-        return "MineCorp" + this.memory.mine_id
+        return this.name
     }
     
+    /// Check whether corp has valid storage
     has_storage()
     {
-        return false
+        return this.memory.storage
     }
     
     /// Set new unload position
@@ -121,13 +95,13 @@ class MineCorp extends Corp
     /// Get mine object
     get_mine()
     {
-        Game.getObjectById(this.memory.mine_id)
+        return Game.getObjectById(this.memory.mine_id)
     }
     
     /// Get room
     get_room()
     {
-        return get_mine().room
+        return this.get_mine().room
     }
     
     /// Get dat drill
@@ -139,39 +113,178 @@ class MineCorp extends Corp
     /// Check if personnel is alive. Remove personal that is dead
     check_personnel()
     {
-        this.memory.movers = this.check_alive(this.memory.movers)
-        this.memory.workers = this.check_alive(this.memory.movers)
+        this.memory.movers = check_alive(this.memory.movers)
+        this.memory.workers = check_alive(this.memory.movers)
     }
     
-    /// Calculates mover performance
-    calculate_mover_performance(ncarry, nmove)
+    /// Calculates mover performance, average energy per tick
+    transfer_rate(obj, distance)
     {
-        
+        if(!obj)
+            return 0
+        var nmove = obj.getActiveBodyparts(Game.MOVE)
+        var ncarry = obj.getActiveBodyparts(Game.CARRY)
+        return 25*nstore*nmove / (distance*(nmove + 2*nstore))
     }
     
+    total_transfer_rate()
+    {
+        /// TODO: Calculate effective distance, checking the roads
+        var distance = this.memory.distance
+        var income = 0
+        
+        for(var m in this.memory.movers)
+        {
+            var obj = Game.getObjectById(this.memory.movers[m])
+            if(obj)
+                income += this.transfer_rate(obj, distance)
+        }
+        
+        return income
+    }
+
+    /// Checks whether mine has enough movers
+    /// @returns {number} positive number,  if enough
     check_movers_enough()
     {
+        var mine_income = this.get_mine_income()
+        var transfer = this.get_transfer_rate()
+        return transfer - mine_income
+    }
+    
+    mine_rate(obj)
+    {
+        if(!obj)
+            return 0
+        var nwork = obj.getActiveBodyparts(Game.WORK)
+        return 2*nwork
+    }
+    
+    /// Get average mine income, per tick
+    get_mine_income()
+    {
+        var income = 0
+        income += (this.mine_rate(Game.getObjectById(this.memory.drill
+        for(var m in this.memory.workers)
+        {
+            var obj = Game.getObjectById(this.memory.workers[m])
+            if(obj)
+                income += this.mine_rate(obj, distance)
+        }
+        return income
+    }
+    
+    get_unload_pos()
+    {
+        var obj = Game.getObjectById(this.memory.unload_id)
+        return Game.getObjectPos(obj)
+    }
+    
+    analyse_mine()
+    {
+        var mine = this.get_mine()
         
+        var pos = this.get_unload_pos()
+        
+        var storage_sites = pos.findInRange(FIND_STRUCTURES, 2, 
+        {
+            filter: { structureType: STRUCTURE_CONTAINER }
+        });
+
+        for(var s in storage_sites)
+        {
+            this.memory.storage = 2
+            storage_sites[s].memory = storage_sites[s].memory || {}
+            storage_sites[s].memory.type = "source"
+            storage_sites[s].memory.corp = this.corp_name()
+        }
+
+        console.log("Corp " + this.corp_name() + " has found " + storage_sites.length + " storage sites near mine " + mine.id)
+
+        if(this.memory.storage < 2)
+        {
+            var storage_build_sites = mine.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, 
+            {
+                filter: { structureType: STRUCTURE_CONTAINER }
+            });
+            
+            if(storage_build_sites.length > 0)
+                this.memory.storage = 1
+        }
+        
+        console.log("Found "+storage_build_sites.length + " storage build sites near mine " + mine.id)
+        
+        var path = pos.findPathTo(mine.pos)
+        this.memory.distance = path.length
+        
+        var max = 0
+        var storage_pos
+        
+        if(path)
+        {
+            var finish = path[path.length-2];
+            
+            if(this.has_storage() == 0)
+            {
+                storage_pos = new RoomPosition(finish.x, finish.y, pos.roomName)
+                mine.room.createConstructionSite(pos, STRUCTURE_CONTAINER);
+            }
+        }
+    }
+    
+    /// Event handler for created drill
+    on_spawned_drill(obj)
+    {
+        console.log("MineCorp"+this.corp_name()+" got new drill")
+    }
+    
+    /// Event handler for created mover
+    on_spawned_mover(obj)
+    {
+        console.log("MineCorp"+this.corp_name()+" got new mover")
+    }
+    
+    /// Event handler for created worker
+    on_spawned_worker(obj)
+    {
+        console.log("MineCorp"+this.corp_name()+" got new workerl")
     }
     
     update()
     {
-        console.log("Corporation " + this.name + " is working hard")
+        var name = this.corp_name()
+        console.log("Corporation " + name + " is working hard")
         this.check_personnel()
         var room = this.get_room()
         if(!this.memory.drill)
         {
-            console.log("Spawning a drill for the mine corp" + name())
+            console.log("Spawning a drill for the mine corp" + name)
             var recipe =
             {
                 name: "drill",
                 memory: 
                 {
                     role: "drill",
-                    occupation: this.name()
+                    occupation: name
                 },
             }
-            var res = room.spawn(recipe, Actions.registerEvent())
+            
+            var res = room.spawn(recipe, this.registerEvent(this.on_spawned_drill))
+        }
+        else if(!this.check_movers_enough())
+        {
+            console.log("Spawning a mover for the mine corp" + name)
+            var recipe =
+            {
+                name: "drill",
+                memory: 
+                {
+                    role: "drill",
+                    occupation: name
+                },
+            }
+            
+            var res = room.spawn(recipe, this.registerEvent(this.on_spawned_drill))
         }
     }
 }
@@ -186,6 +299,7 @@ function getCorpForMine(mine, center)
     }
     return new MineCorp(mine, center)
 }
+
 /** Will find and fill in mining spots **/
 /** @param (RoomPosition) pos - central position **/
 Room.prototype.analyse_mines=function(center)
@@ -201,95 +315,12 @@ Room.prototype.analyse_mines=function(center)
         
         var corp = getCorpForMine(mine, center)
             
-    
-        if(!('storage' in mine.memory))
-            mine.memory.storage = 0
-
-        if(!('build_storage' in mine.memory))
-            mine.memory.build_storage = 0
-
-
-        var storage_sites = mine.pos.findInRange(FIND_STRUCTURES, 2, 
-        {
-            filter: { structureType: STRUCTURE_CONTAINER }
-        });
-
-        for(var s in storage_sites)
-        {
-            storage_sites[s].memory = storage_sites[s].memory || {}
-            storage_sites[s].memory.type = "source"                
-        }
-
-        console.log("Found "+storage_sites.length + " storage sites near mine " + mine.id)
-
-        var storage_build_sites = mine.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, 
-        {
-            filter: { structureType: STRUCTURE_CONTAINER }
-        });
-        console.log("Found "+storage_build_sites.length + " storage build sites near mine " + mine.id)
+        mine.memory.corp = corp.name
         
-       
-        var path = pos.findPathTo(mine.pos)
-        var distance = path.length
+        corp.analyse_mine()
         
-        var spots = []
-        var max = 0
-        var storage_pos
-        
-        if(path)
-        {
-            var finish = path[path.length-2];
-            storage_pos = new RoomPosition(finish.x, finish.y, pos.roomName)
-            
-            /*
-            for(var x = mine.pos.x-1; x <= mine.pos.x+1; x++)
-                for(var y = mine.pos.y-1; y <= mine.pos.y+1; y++)
-                {
-                    if(x == mine.pos.x && y == mine.pos.y)
-                        continue;
-                    var spot_pos = new RoomPosition(x,y, mine.pos.roomName)
-                    var tile = Game.map.getTerrainAt(spot_pos)
-
-                    if(tile != 'wall')
-                    {
-                        spots.push(spot_pos)
-                        var res = mine.room.createFlag(spot_pos, "Minespot_"+x+":"+y)
-                        if(res == ERR_NAME_EXISTS)
-                        {
-                            
-                        }
-                        else
-                        {
-                            console.log("Created mine spot flag")
-                        }
-                    }
-                }*/
-            max = spots.length
-        }
-        
-        var info = 
-        {
-            distance : distance,
-            max : max,
-            miners : [],
-            movers : [],
-            storage_pos : storage_pos,
-        }   
-        
-        mine.memory = _.merge(mine.memory, info)
-        
+        //mine.memory = _.merge(mine.memory, info)
     }
-    
-    var total_harvesters = 0
-    for(var i in Memory.mine_info)
-    {
-        var info = Memory.mine_info[i]
-        var harvesters_per_mine = info.max + Math.round(info.distance / 4);
-        //console.log("Mine "+i+" needs "+harvesters_per_mine+" harvesters")
-        total_harvesters = total_harvesters+ 1 //harvesters_per_mine
-    }
-
-    Memory.need_harvesters = total_harvesters //Memory.mine_info.length
 }
 
 
@@ -304,5 +335,13 @@ module.exports =
     addCorp : function(corp)
     {
         
+    },
+    
+    update : function()
+    {
+        for(var c in Corporations)
+        {
+            Corporations[c].update()
+        }
     }
 };
