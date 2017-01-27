@@ -7,8 +7,8 @@
  * mod.thing == 'a thing'; // true
  */
  
-Rooms = require("utils.room")
-Actions = require("utils.action")
+var Rooms = require("utils.room")
+var Actions = require("utils.action")
 
 /// Storage for corporation types
 /// Will be used for memory state restoration
@@ -17,7 +17,7 @@ var CorporationTypes = {}
 /// Storage for corporation instances
 var Corporations = {}
 
-check_alive = function(objects)
+function check_alive(objects)
 {
     var alive = []
     for(var i in objects)
@@ -337,7 +337,6 @@ Room.prototype.analyse_mines=function(center)
         //mine.memory = _.merge(mine.memory, info)
     }
 }
-
 
 module.exports = 
 {

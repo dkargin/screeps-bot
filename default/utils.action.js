@@ -7,7 +7,7 @@
  * mod.thing == 'a thing'; // true
  */
  
-Mem = require('memory') 
+var Mem = require('memory') 
 
 /// Dictionary for action class instances
 var ActionTypes = {}
@@ -224,7 +224,7 @@ class MoveTo extends Action
     }
 }
 
-MetaObjects = {}
+var MetaObjects = {}
 
 class MetaObject
 {
