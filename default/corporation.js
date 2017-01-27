@@ -67,6 +67,11 @@ class MineCorp extends Actions.MetaObject
         this.check_path()
     }
     
+    id()
+    {
+        return this.name
+    }
+    
     /// Check precompiled paths
     check_path()
     {
@@ -126,6 +131,7 @@ class MineCorp extends Actions.MetaObject
         var ncarry = obj.getActiveBodyparts(Game.CARRY)
         return 25*nstore*nmove / (distance*(nmove + 2*nstore))
     }
+
     
     total_transfer_rate()
     {
@@ -164,13 +170,17 @@ class MineCorp extends Actions.MetaObject
     get_mine_income()
     {
         var income = 0
-        income += (this.mine_rate(Game.getObjectById(this.memory.drill
+        income += this.mine_rate(Game.getObjectById(this.memory.drill))
         for(var m in this.memory.workers)
         {
             var obj = Game.getObjectById(this.memory.workers[m])
             if(obj)
                 income += this.mine_rate(obj, distance)
         }
+        
+        var max_income = 4000/300
+        if(income > max_income)
+            income = max_income
         return income
     }
     
@@ -256,12 +266,14 @@ class MineCorp extends Actions.MetaObject
         console.log("Corporation " + name + " is working hard")
         this.check_personnel()
         var room = this.get_room()
+        
         if(!this.memory.drill)
         {
             console.log("Spawning a drill for the mine corp" + name)
             var recipe =
             {
                 name: "drill",
+                body: [Game.WORK, Game.WORK, Game.CARRY, Game.MOVE],
                 memory: 
                 {
                     role: "drill",
@@ -269,7 +281,7 @@ class MineCorp extends Actions.MetaObject
                 },
             }
             
-            var res = room.spawn(recipe, this.registerEvent(this.on_spawned_drill))
+            var res = room.enqueue(recipe, this.event(this.on_spawned_drill))
         }
         else if(!this.check_movers_enough())
         {
@@ -277,6 +289,7 @@ class MineCorp extends Actions.MetaObject
             var recipe =
             {
                 name: "drill",
+                body: [Game.CARRY, Game.CARRY, Game.MOVE, Game.MOVE],
                 memory: 
                 {
                     role: "drill",
@@ -284,7 +297,7 @@ class MineCorp extends Actions.MetaObject
                 },
             }
             
-            var res = room.spawn(recipe, this.registerEvent(this.on_spawned_drill))
+            var res = room.enqueue(recipe, this.event(this.on_spawned_mover))
         }
     }
 }

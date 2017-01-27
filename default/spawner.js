@@ -110,168 +110,120 @@ Creep.prototype.recycle = function()
     }
 }
 
-/*
-/// Wraps up recipe call
-/// We need to keep:
-///  - total recipe population
-///  - required population
-class RecipeHelper
-{
-    // @param name - generic recipe name
-    // @param generator - generates blueprint and active name
-    // @param initializer - function is called when creep is going to be spawned
-    constructor(name, generator, initializer)
-    {
-        Actions.test_fn()
-        this.name = name
-        this.generator = generator
-        this.initializer = initializer
-        
-        var info
-        if(!Memory.recipe_info[name])
-        {
-            Memory.recipe_info[name] = {}
-            info = Memory.recipe_info[name]
-            info.population = []
-            info.population.free_index = []
-            info.priority = 1
-            info.required = 0
-            info.last_created = 0
-        }
-        if(!Memory.recipe_info[name].enqueued)
-            Memory.recipe_info[name].enqueued = 0
-
-        if(!Memory.recipe_info[name].free_index)
-            Memory.recipe_info[name].free_index = []
-    }
-
-    get_info()
-    {
-        return Memory.recipe_info[this.name]
-    }
-
-    get_population()
-    {
-        return this.get_info().population.length
-    }
-
-    get_enqueued()
-    {
-        return this.get_info().enqueued
-    }
-
-    /// Get index of last created creep
-    get_last_created()
-    {
-        return this.get_info().last_created
-    }
-
-    /// Called by HoP when creep is created
-    creep_created(room, uid, desc)
-    {
-        console.log("Initializing creep data for "+uid)
-        var info = this.get_info()
-        //var creep = Game.creeps[uid]
-
-        //if(!desc.reused_index)
-        //    info.last_created ++
-        //creep_memory.index = info.last_created
-        info.population.push(uid)
-
-        info.enqueued--
-        if(info.enqueued < 0)
-        {
-            console.log("Error: enqued counter became zero")
-            info.enqueued = 0
-        }
-        //this.initializer(creep_memory)
-    }
-
-    /// Generates best recipe available for specified cost limit
-    /// @returns dictionary with fields: {name, blueprint, unique_name}
-    ///  - name - blueprint name
-    ///  - blueprint - body description
-    ///  - unique_name - unique name for a creep
-    get_best_recipe(cost_limit)
-    {
-        //console.log("Picking best recipe for blueprint="+this.name)
-        var info = this.get_info()
-        var result = this.generator(cost_limit)
-        var new_index = info.last_created+1
-
-        result.reused_index = false
-
-        if(info.free_index.length > 0)
-        {
-            new_index = info.free_index.pop()
-            result.reused_index = true
-        }
-
-        result.unique_name = result.name + "#" + (info.last_created+1)
-
-        return result 
-    }
-
-    on_popped(room)
-    {
-        var info = this.get_info()
-
-        info.enqueued--
-        if(info.enqueued < 0)
-        {
-            console.log("Error: enqued counter became zero")
-            info.enqueued = 0
-        }
-    }
-
-    /// Check recipe population
-    check_population(queue)
-    {
-        var info = this.get_info()
-        var dead = []
-        var alive = []
-        /// Check alive creeps
-        for(var i in info.population)
-        {
-            var name = info.population[i]
-            if(!Game.creeps[name])
-            {
-                dead.push(name)
-            }
-            else
-            {
-                alive.push(name)
-            }
-        }
-
-        info.population = alive
-
-        if(dead.length > 0)
-        {
-            console.log("Found dead creeps:" + dead)
-            for(var i in dead)
-            {
-                info.free_index.push(dead[i])
-            }
-        }
-    }
-
-    /// Add creep name to population
-    /// Used in case of name collision
-    add_name(name)
-    {
-        var info = this.get_info()
-        info.population.push(name)
-        info.last_created++
-    }
-}
-*/
-
-
 /// `Head of personnel` manager class (yup ss13)
 ///  - Keeps creep spawn queue for specified spawn
 ///  - Checks current population for each recipe and spawns additional creeps if needed
 
+
+Room.prototype.spawn = function(desc, handler)
+{
+    /** Recipe example
+    var recipe =
+    {
+        name: "drill",
+        body: [Game.CARRY, Game.CARRY, Game.MOVE, Game.MOVE],
+        memory: 
+        {
+            role: "drill",
+            occupation: name
+        },
+    }**/
+    //console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
+    var id = Memory.last_object_id
+    var unique_name = desc.name + "#" + Memory.last_object_id
+    var test_result = spawn.canCreateCreep(desc.blueprint, desc.unique_name)
+
+    switch(test_result)
+    {
+    case OK:
+        console.log("Can create new "+name)
+        break;
+    case ERR_NOT_ENOUGH_ENERGY:
+        console.log("Not enough energy for "+name)
+        break;
+    case ERR_NAME_EXISTS:
+        console.log("Name "+ desc.unique_name + " already exists")
+        helper.add_name(desc.unique_name)
+        break
+    case ERR_INVALID_ARGS:
+        console.log("Invalid recipe body " + name)
+        break
+    }
+
+    if(test_result == OK)
+    {
+        console.log("Spawning design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
+        var memory = 
+        {
+            recipe:name,
+            recipe_rev:desc.name
+        }
+        helper.initializer(memory)
+        var result = spawn.createCreep(desc.blueprint, desc.unique_name, memory)
+        if(_.isString(result)) 
+        {   
+            console.log("Spawned design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
+            /// Really created a creep
+            var creep = Game.creeps[result]
+            //helper.initializer(creep)
+            
+            room.memory.spawn_queue.pop()
+        }
+        else
+        {
+            console.log("Failed to spawn for some reason")
+        }
+    }
+}
+
+/// Enqueue recipe
+/// @param room - selected room
+/// @param recipe - recipe name
+    
+Room.prototype.enqueue = function(desc)
+{
+
+
+    /** Recipe example
+    var recipe =
+    {
+        name: "drill",
+        body: [Game.CARRY, Game.CARRY, Game.MOVE, Game.MOVE],
+        memory: 
+        {
+            role: "drill",
+            occupation: name
+        },
+    }**/
+    
+
+    console.log("Adding recipe "+desc.name+" to room "+ this.name)
+    var spawn_queue = this.memory.spawn_queue
+    
+    this.memory.spawn_queue = this.memory.spawn_queue || []
+
+    if(this.memory.spawn_queue.length < 5)
+    {
+        this.memory.spawn_queue.push(desc)
+        return true
+    }
+    return false
+}
+
+Spawn.prototype.enqueue = function(recipe)
+{
+    return controller.enqueue(this.room, recipe)
+}
+
+Room.prototype.print_queue = function()
+{
+    console.log(this.memory.spawn_queue)
+}
+
+Spawn.prototype.print_queue = function()
+{
+    console.log(this.room.memory.spawn_queue)
+}
 
 
 /// This class is singleton-like. Only one instance should exist
@@ -282,6 +234,8 @@ class HoP
         this.helpers = {}   // dictionary of recipe helpers
         this.queue = []     // current production queue
         this.max_length = 5 // max queue length
+        
+        Memory.last_object_id = 0
 
         if(!('recipe_info' in Memory))
         {
@@ -295,16 +249,6 @@ class HoP
         }
         
         var controller = this
-        
-        Room.prototype.enqueue = function(recipe)
-        {
-            return controller.enqueue(this, recipe)
-        }
-
-        Spawn.prototype.enqueue = function(recipe)
-        {
-            return controller.enqueue(this.room, recipe)
-        }
 
         Spawn.prototype.population = function(recipe)
         {
@@ -316,16 +260,6 @@ class HoP
             controller.addRecipe(recipe, generator)
         }
         
-        Room.prototype.print_queue = function()
-        {
-            console.log(this.memory.spawn_queue)
-        }
-
-        Spawn.prototype.print_queue = function()
-        {
-            console.log(this.room.memory.spawn_queue)
-        }
-
         Room.prototype.population_available = function(recipe)
         {
             return controller.population_available(recipe)
@@ -391,32 +325,6 @@ class HoP
         var helper = this.helpers[recipe]
 
         return helper.get_population() + helper.get_enqueued()
-    }
-
-    /// Enqueue recipe
-    /// @param room - selected room
-    /// @param recipe - recipe name
-    enqueue(room, recipe)
-    {
-        var helper = this.helpers[recipe]
-        if(!helper)
-        {
-            console.log("ERROR: No recipe helper for "+name)
-        }
-
-        console.log("Adding recipe "+recipe+" to room "+ room.name)
-        var spawn_queue = room.memory.spawn_queue
-        
-        if(!room.memory.spawn_queue)
-            room.memory.spawn_queue = []
-
-        if(spawn_queue.length < this.max_length)
-        {
-            spawn_queue.push(recipe)
-            helper.get_info().enqueued++
-            return true
-        }
-        return false
     }
 
     pop_queue(room)
@@ -491,28 +399,11 @@ class HoP
         if(spawn.spawning)
             return
         
-        var name = room.memory.spawn_queue[0]
-
-        var helper = this.helpers[name]
-
-        if (!helper)
-        {
-            console.log("Invalid bp name in production queue: " + name)
-            room.memory.spawn_queue.pop()
-            return
-        }
-
-        var desc = this.get_best_recipe_desc(room, name)
-
-        if(!desc)
-        {
-            room.memory.spawn_queue.pop()
-            return
-        }
-
-        
-        //console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
-        var test_result = spawn.canCreateCreep(desc.blueprint, desc.unique_name)
+        var name = desc.name
+        var desc = room.memory.spawn_queue[0]
+        var unique_name = desc.name + "#" + (Memory.last_object_id+1)
+        console.log("Trying to spawn design="+desc.name+" rev_name="+unique_name+" data=" + desc.body)
+        var test_result = spawn.canCreateCreep(desc.body, desc.unique_name)
 
         switch(test_result)
         {
@@ -523,8 +414,8 @@ class HoP
             console.log("Not enough energy for "+name)
             break;
         case ERR_NAME_EXISTS:
-            console.log("Name "+ desc.unique_name + " already exists")
-            helper.add_name(desc.unique_name)
+            console.log("Name "+ unique_name + " already exists")
+            helper.add_name(unique_name)
             break
         case ERR_INVALID_ARGS:
             console.log("Invalid recipe body " + name)
@@ -533,21 +424,20 @@ class HoP
 
         if(test_result == OK)
         {
-            console.log("Spawning design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
+            console.log("Spawning design="+name+" rev_name="+unique_name+" data=" + desc.body)
             var memory = 
             {
                 recipe:name,
                 recipe_rev:desc.name
             }
             helper.initializer(memory)
-            var result = spawn.createCreep(desc.blueprint, desc.unique_name, memory)
+            var result = spawn.createCreep(desc.body, unique_name, desc.memory)
             if(_.isString(result)) 
             {   
-                console.log("Spawned design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
+                console.log("Spawned design="+name+" rev_name="+unique_name+" data=" + desc.body)
                 /// Really created a creep
                 var creep = Game.creeps[result]
-                //helper.initializer(creep)
-                helper.creep_created(room, creep, desc)
+                /// TODO: event it!
                 room.memory.spawn_queue.pop()
             }
             else

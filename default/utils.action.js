@@ -20,7 +20,9 @@ var ActionResult =
     Failed : 2,     // Action has failed
     Canceled : 3,   // Action is canceled
     Broken : 4,     // Action data is broken
-    Empty : 5       // o action
+    Queued : 5,     // Action is queued
+    Empty : 6,       // o action
+    Rejected : 7,   // Action was rejected
 }
 
 /// Storage for action event handlers
@@ -234,19 +236,20 @@ class ActionQueue
     }
 }
 
+MetaObjects = {}
+
 class MetaObject
 {
-    constructor()
+    constructor(name)
     {
-        
+        MetaObjects[name] = this
     }
     
     /// Register event handler.
     /// @returns event key
-    registerEvent(handler)
+    event(handler)
     {
-        var index = Memory.events.last_handler++
-        var key = "Event#"+index
+        return [this.id(), handler.name]
     }
 }
 
