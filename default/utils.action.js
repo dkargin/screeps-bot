@@ -43,11 +43,65 @@ function raiseEvent(handler_key, data)
 /// Convert integer action check result to a string
 function check2str(check)
 {
-    for(var str in ActionCheck)
-        if(ActionCheck[str] == check)
+    for(var str in ActionResult)
+        if(ActionResult[str] == check)
             return str;
     return "Unknown action check result"
 }
+
+/// All AI objects, that 
+var EventHandlers = {}
+
+class EventHandler
+{
+    constructor(uid)
+    {
+        EventHandlers[uid] = this     
+        this._uid = uid
+        this.last_event_handler = this.last_event_handler || 1 
+    }
+    
+    uid()
+    {
+    	return this._uid
+    }
+    /// Register event handler.
+    /// @returns event key
+    makeHandler(handler)
+    {
+    	console.log("Making event handler uid="+this.uid() + " name=" + handler.name + " handler code="+handler)
+        return [this.uid(), handler]
+    }
+    
+    raise(handler, args)
+    {
+    	var fn = this[handler[1]]
+    	console.log(this.constructor.name + " executing event from handler= "+ handler)
+    	if(fn)
+    		fn.apply(this, args)
+    }
+}
+
+Object.defineProperty(EventHandler.prototype, 'memory', {
+    get: function() {
+        if(_.isUndefined(Memory.handlers)) {
+            Memory.handlers = {};
+        }
+        if(!_.isObject(Memory.handlers)) {
+            return undefined;
+        }
+        return Memory.handlers[this.name] = Memory.handlers[this.name] || {};
+    },
+    set: function(value) {
+        if(_.isUndefined(Memory.handlers)) {
+            Memory.mobjects = {};
+        }
+        if(!_.isObject(Memory.handlers)) {
+            throw new Error('Could not set source memory');
+        }
+        Memory.handlers[this.name] = value;
+    }
+});
 
 /// Generic template for all action types
 /**
@@ -57,10 +111,9 @@ function check2str(check)
 */
 class Action
 {
-    constructor()
+    constructor(name)
     {
-        this.memory.index = 0;
-        ActionTypes[this.name()] = this
+        ActionTypes[name] = this
     }
     
     /// Attach an action to object or restore it
@@ -68,6 +121,12 @@ class Action
     /// @param state
     attach(obj, state)
     {
+    }
+    
+    /// Get attached memory
+    get_data(obj)
+    {
+    	return obj.memory.actions[this.active_name()]
     }
     
     /*
@@ -128,16 +187,16 @@ Object.defineProperty(Action.prototype, 'memory', {
 var desc = {name:"mover", role:"mover", body:[]}
 spawn.spawn(decs, link_event(self, ))
 */
-
 class ActionSpawn extends Action
 {
-    constructor(obj, data, event)
+    constructor()
     {
-        super();
-        
+        super('ActionSpawn');
+        /*
         data.action = this.prototype.name
         data.event = event
         console.log("Creating action="+this.prototype.name)
+        */
     }
     
     active_name(obj, data)
@@ -146,10 +205,10 @@ class ActionSpawn extends Action
     }
     
     /// Add recipt to a queue
-    assign(obj, recipe, eventComplete, eventFailed)
+    attach(obj, data, recipe, event)
     {
-        this.memory.eventComplete = eventComplete
-        this.memory.eventFailed = eventFailed
+        data.event = event
+        data.recipe = recipe
     }
     
     /// Check if action can be completed
@@ -173,15 +232,72 @@ class ActionSpawn extends Action
     }
 }
 
+/// Dummy action
+class ActionWait extends Action
+{
+    constructor()
+    {
+        super('ActionWait');
+    }
+    
+    attach(obj, data, duration, event)
+    {
+        data.event = event
+        data.duration = duration
+        console.log("Created "+this.constructor.name+" duration="+data.duration + " event=" + event)
+    }
+    /*
+    active_name(obj, data)
+    {
+        return "AcionWait"
+    }*/
+    
+    /// Check if action can be completed
+    check(obj, data)
+    {
+    	console.log("ActionWait checks its state, left="+data.duration)
+        return ActionResult.Active
+    }
+    /// Called by behaviour to update its initial state
+    /// @returns next update tick
+    /// @param {StructureSpawn} obj - spawn
+    update(obj, data)
+    {
+    	data.duration--
+    	
+    	if(data.duration > 0)
+    		return ActionResult.Active
+    	return ActionResult.Complete
+    }
+    
+    raise(obj, data, result)
+    {
+    	var event = data.event
+    	var handler = EventHandlers[event[0]]
+    	if(!handler)
+    	{
+    		console.log(this.name + "@" + obj.name + " failed to find handler="+event[0])
+    		return
+    	}
+    	
+    	handler.raise(event, [result])
+    }
+    
+    /// Called when task is complete, to clean up object internal state
+    clear(obj)
+    {
+        
+    }
+}
 /// MoveTo action
 /// Guides creep to a stationary target
 class MoveTo extends Action
 {
-    type()
-    {
-        return "MoveTo"
-    }
-    
+	constructor()
+	{
+		super('MoveTo')
+	}
+	
     debug_name(obj, data)
     {
         return "MoveTo:" + data.target
@@ -190,28 +306,21 @@ class MoveTo extends Action
     // @param obj - object that will execute this action
     // @param targte - movement destination
     // @param finish - callback finction name. Will be called by obj[finish](...)
-    assign(obj, data, target, finish)
+    assign(obj, data, target, event)
     {
-        data.action = name()
-        data.action_move = 
-        {
-            target:target,  /// destination pos
-            finish:finish,  /// event to be called when complete
-            recalc:0        /// ticks for path recalculation
-        }
+        data.action = this.name
+        data.target = target
+        data.event = event
+        data.status = 0
+        data.recalc = 0
     }
     
-    info(obj)
+    check(obj, data)
     {
-        return obj.memory.action_move
+        return ActionResult.Active
     }
     
-    check(obj)
-    {
-        
-    }
-    
-    update(obj)
+    update(obj, data)
     {
         return 0    
     }
@@ -220,91 +329,50 @@ class MoveTo extends Action
     /// Do not call it directly
     clear(obj)
     {
-        delete obj.memory.action_move
     }
 }
-
-var MetaObjects = {}
-
-class MetaObject
-{
-    constructor(name)
-    {
-        MetaObjects[name] = this
-    }
-    
-    /// Register event handler.
-    /// @returns event key
-    event(handler)
-    {
-        return [this.id(), handler.name]
-    }
-}
-
-Object.defineProperty(MetaObject.prototype, 'memory', {
-    get: function() {
-        if(_.isUndefined(Memory.mobjects)) {
-            Memory.mobjects = {};
-        }
-        if(!_.isObject(Memory.mobjects)) {
-            return undefined;
-        }
-        return Memory.mobjects[this.name] = Memory.mobjects[this.name] || {};
-    },
-    set: function(value) {
-        if(_.isUndefined(Memory.mobjects)) {
-            Memory.mobjects = {};
-        }
-        if(!_.isObject(Memory.mobjects)) {
-            throw new Error('Could not set source memory');
-        }
-        Memory.mobjects[this.name] = value;
-    }
-});
 
 module.exports =
 {
+	init_types : function()
+	{
+		this.addType(new ActionSpawn())
+		this.addType(new ActionWait())
+		this.addType(new MoveTo())
+	},
+	
+	resultToString : check2str,
+	
     addType : function(type)
     {
-        var name = type.name()
-        ActionTypes[name] = type
+        ActionTypes[type.name] = type
     },
     /// Get action for specified type
     getType : function(type)
     {
         return ActionTypes[type]
     },
-    update_task: function(obj)
-    {
-        if(!obj.memory.action)
-        {
-            return ActionResult.Broken
-        }
-        
-        var action = this.getType(obj.memory.action)
-        
-        var status = action.check(obj)
-        var exit = false
-        switch(status)
-        {
-            case ActionResult.Broken:
-                exit = true;
-                break;
-        }
-    },
-    
-    /// Restore action from a memory
-    restore : function(object)
-    {
-    	///TODO: implement
-    },
     
     Spawn : ActionSpawn,    
-    MetaObject : MetaObject,
+    EventHandler : EventHandler,
     
-    /// Add task to the queue
-    taskqueue_add: function(obj, action)
+    addTaskWait : function(obj, duration, event)
     {
+    	var action = ActionTypes.ActionWait
+    	//console.log("CName="+action.constructor.name + " AName=" + action.name)
+    	var data = {action : action.constructor.name}
+    	action.attach(obj, data, duration, event)
+    	this.taskqueue_add(obj, data)
+    },
+    /// Add task data to the queue
+    taskqueue_add: function(obj, data)
+    {
+    	if(!data.action)
+    	{
+    		console.log("Invalid action name is added to the queue")
+    		return
+    	}
+    	console.log("Adding action=" + data.action + " to the queue")
         obj.memory.action_queue = obj.memory.action_queue || []
         /* Example action queue:
          * action_queue = [
@@ -315,14 +383,78 @@ module.exports =
          * event - data for raising task events
          * The rest of the fields contain task-specific data
          */
-        obj.memory.action_queue.push(action)
-        
-        return action
+        obj.memory.action_queue.push(data)
     },
     /// Get first task
     taskqueue_first : function(obj)
     {
     	return obj.memory.action_queue[0]
+    },
+    
+    /// Pop first action from action queue
+    taskqueue_pop : function(obj)
+    {
+    	if(obj.memory.action_queue.length == 0)
+    		return
+    	var action_data = obj.memory.action_queue[0]
+    	var action = ActionTypes[action_data.action]
+    	if(action)
+    	{
+    		console.log("Popping action " + action.name + " from queue")
+    		if(action.raise)
+    			action.raise(obj, action_data, ActionResult.Canceled)
+    		if(action.clear)
+    			action.clear(obj)
+    	}
+    	obj.memory.action_queue.shift()
+    },
+    
+    taskqueue_clear : function(obj)
+    {
+    	while(obj.memory.action_queue.length > 0)
+		{
+    		this.taskqueue_pop(obj)
+		}
+    },
+    
+    /// Get task queue length
+    taskqueue_length : function(obj)
+    {
+    	return obj.memory.action_queue.length
+    },
+    
+    /// Process task queue
+    taskqueue_process : function(obj)
+    {
+    	if(obj.memory.action_queue.length == 0)
+    		return
+    		
+		var action_data = this.taskqueue_first(obj)
+		var action = ActionTypes[action_data.action]
+    	
+		var check_result = action.update(obj, action_data);
+    	var str_result = check2str(check_result)
+    	
+    	console.log("taskqueue_process action "+ action_data.action + " with data=" + JSON.stringify(action_data) + " state="+str_result)
+		switch(check_result)
+		{
+		case ActionResult.Active : 		// Action is still active			
+			//action.update(obj, action_data)
+			break
+		case ActionResult.Complete : 	// Action is complete
+		case ActionResult.Failed : 		// Action has failed
+		case ActionResult.Canceled : 	// Action is canceled
+		case ActionResult.Broken :
+		case ActionResult.Empty : 		// faulty action
+			action.raise(obj, action_data, check_result)
+			action.clear(obj)
+			obj.memory.action_queue.shift()
+			break;     // Action data is broken
+		//case ActionResult.Queued : break;     // Action is queued
+		//case ActionResult.Rejected : break   // Action was rejected
+		default:
+			console.log("tasqueue_process: unprocessed check result="+check_result)
+		}
     }
 };
 

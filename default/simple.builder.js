@@ -10,6 +10,11 @@ var roleBuilder = {
 		}
 	},
 	required : 1,
+	
+	capabilities : function(creep)
+	{
+		return ['build']
+	},
     /** @param {Creep} creep **/
     run: function(creep) {
 

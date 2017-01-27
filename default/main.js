@@ -1,6 +1,7 @@
 var memoryUtils = require('memory')
 var roomUtils = require('utils.room')
 var Corps = require('corporation')
+var Actions = require('utils.action')
 
 var lastIndex = 0;
 
@@ -70,21 +71,95 @@ var controllers =
 
 var firstTick = true
 
-module.exports.loop = function () 
+var testCorp = new Actions.EventHandler("test_corp")
+
+testCorp.event0 = function(event, result)
 {
-    return;
+    this.executed = true
+	console.log("testCorp executed event")
+}
+
+
+testCorp.event1 = function(event, result)
+{
+	console.log("<h>Event1 result=</h>" + Actions.resultToString(result))
+}
+
+testCorp.event2 = function(event, result)
+{
+	console.log("<h>Event2 result=</h>" + Actions.resultToString(result))	
+}
+
+testCorp.event3 = function(event, result)
+{
+	console.log("Event3 result=" + Actions.resultToString(result))	
+}
+
+var tick = 0
+
+function test_event()
+{
+    testCorp.executed = false
+    var event = testCorp.makeHandler('event0')
     
+    testCorp.raise(event)
+    if(!testCorp.executed)
+    {
+        console.log("<b>Failed to run event handler!!!</b>")
+        return false
+    }
+    return true
+}
+
+function test_action_queue()
+{
+	var obj = Game.spawns.Spawn1
+	
+	/// Initialize default action types
+	if(tick == 0)
+	{
+	    if(!test_event())
+	        return
+	
+		console.log("<b> ======================Initializing action test =================</b>")
+		Actions.init_types()
+		
+		Actions.taskqueue_clear(obj)
+		
+		Actions.addTaskWait(obj, 3, testCorp.makeHandler('event1'))
+		Actions.addTaskWait(obj, 7, testCorp.makeHandler('event2'))
+		Actions.addTaskWait(obj, 5, testCorp.makeHandler('event3'))
+		Actions.addTaskWait(obj, 8, testCorp.makeHandler('event3'))
+	}
+	
+	/*
+	if(tick == 3)
+	{
+		Actions.taskqueue_pop(obj)
+	}*/
+	
+	Actions.taskqueue_process(obj)
+	
+	if(tick > 24)
+	{
+		if(Actions.taskqueue_length(obj) != 0)
+			console.log("!!!Task queue is not empty!!!")
+	}
+	
+	tick = tick + 1
+}
+
+module.exports.loop = function () 
+{   
+	test_action_queue()
+	return
+	
     if(firstTick)
     {
         firstTick = false;
         
         for(var i in Game.spawns)
             Game.spawns[i].room.analyse_mines(Game.spawns[i])
-            
-        /*
-        for(var u in controllers) {
-            controllers[u].init_recipes(HoP)
-        }*/
     }
     
     simple_ai()

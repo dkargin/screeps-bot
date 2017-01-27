@@ -35,7 +35,7 @@ function check_alive(objects)
  * - miner
  * - storage nearby the mine
 **/
-class MineCorp extends Actions.MetaObject
+class MineCorp extends Actions.EventHandler
 {
     constructor(mine, unload_obj)
     {
