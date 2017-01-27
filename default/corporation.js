@@ -24,7 +24,7 @@ check_alive = function(objects)
     {
         var obj = Game.getObjectById(objects[i])
         if(obj)
-            movers.push(ob)
+            alive.push(ob)
     }
     return alive
 }
@@ -190,6 +190,7 @@ class MineCorp extends Actions.MetaObject
         return Game.getObjectPos(obj)
     }
     
+    /// Calculate data for a mine
     analyse_mine()
     {
         var mine = this.get_mine()

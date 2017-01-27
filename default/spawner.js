@@ -114,76 +114,11 @@ Creep.prototype.recycle = function()
 ///  - Keeps creep spawn queue for specified spawn
 ///  - Checks current population for each recipe and spawns additional creeps if needed
 
-
-Room.prototype.spawn = function(desc, handler)
-{
-    /** Recipe example
-    var recipe =
-    {
-        name: "drill",
-        body: [Game.CARRY, Game.CARRY, Game.MOVE, Game.MOVE],
-        memory: 
-        {
-            role: "drill",
-            occupation: name
-        },
-    }**/
-    //console.log("Trying to spawn design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
-    var id = Memory.last_object_id
-    var unique_name = desc.name + "#" + Memory.last_object_id
-    var test_result = spawn.canCreateCreep(desc.blueprint, desc.unique_name)
-
-    switch(test_result)
-    {
-    case OK:
-        console.log("Can create new "+name)
-        break;
-    case ERR_NOT_ENOUGH_ENERGY:
-        console.log("Not enough energy for "+name)
-        break;
-    case ERR_NAME_EXISTS:
-        console.log("Name "+ desc.unique_name + " already exists")
-        helper.add_name(desc.unique_name)
-        break
-    case ERR_INVALID_ARGS:
-        console.log("Invalid recipe body " + name)
-        break
-    }
-
-    if(test_result == OK)
-    {
-        console.log("Spawning design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
-        var memory = 
-        {
-            recipe:name,
-            recipe_rev:desc.name
-        }
-        helper.initializer(memory)
-        var result = spawn.createCreep(desc.blueprint, desc.unique_name, memory)
-        if(_.isString(result)) 
-        {   
-            console.log("Spawned design="+name+" rev_name="+desc.unique_name+" data=" + desc.blueprint)
-            /// Really created a creep
-            var creep = Game.creeps[result]
-            //helper.initializer(creep)
-            
-            room.memory.spawn_queue.pop()
-        }
-        else
-        {
-            console.log("Failed to spawn for some reason")
-        }
-    }
-}
-
 /// Enqueue recipe
 /// @param room - selected room
-/// @param recipe - recipe name
-    
-Room.prototype.enqueue = function(desc)
+/// @param recipe - recipe name    
+Room.prototype.enqueue = function(desc, handler)
 {
-
-
     /** Recipe example
     var recipe =
     {
@@ -195,19 +130,20 @@ Room.prototype.enqueue = function(desc)
             occupation: name
         },
     }**/
-    
 
     console.log("Adding recipe "+desc.name+" to room "+ this.name)
     var spawn_queue = this.memory.spawn_queue
     
     this.memory.spawn_queue = this.memory.spawn_queue || []
 
-    if(this.memory.spawn_queue.length < 5)
+    if(this.memory.spawn_queue.length >= 5)
     {
-        this.memory.spawn_queue.push(desc)
-        return true
+    	return false    
     }
-    return false
+    
+    var action = new Actions.Spawn(desc, handler)
+    this.memory.spawn_queue.push(desc)
+    return true
 }
 
 Spawn.prototype.enqueue = function(recipe)

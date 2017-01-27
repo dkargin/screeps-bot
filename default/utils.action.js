@@ -60,7 +60,7 @@ class Action
     constructor()
     {
         this.memory.index = 0;
-        ActionTypes[this.name() = i]
+        ActionTypes[this.name()] = this
     }
     
     /// Attach an action to object or restore it
@@ -87,6 +87,11 @@ class Action
     {
         return "ActionTemplate"
     }
+    
+    /// Called when task is complete, to clean up internal state
+    clear(obj, data)
+    {
+    }
     */
     
     /// Called by behaviour to update its initial state
@@ -94,11 +99,6 @@ class Action
     update(obj)
     {
         return 0
-    }
-    
-    /// Called when task is complete, to clean up internal state
-    clear(obj)
-    {
     }
 }
 
@@ -131,18 +131,16 @@ spawn.spawn(decs, link_event(self, ))
 
 class SpawnAction extends Action
 {
-    constructor()
+    constructor(obj, data, event)
     {
         super();
+        
+        data.action = this.prototype.name
+        data.event = event
+        console.log("Creating action="+this.prototype.name)
     }
     
-    /// Return action name
-    type()
-    {
-        return "ActionTemplate"
-    }
-    
-    active_name(obj)
+    active_name(obj, data)
     {
         return "ActionTemplate"
     }
@@ -184,19 +182,18 @@ class MoveTo extends Action
         return "MoveTo"
     }
     
-    debug_name(obj)
+    debug_name(obj, data)
     {
-        return "MoveTo:" + object.memory.target
+        return "MoveTo:" + data.target
     }
     
     // @param obj - object that will execute this action
     // @param targte - movement destination
     // @param finish - callback finction name. Will be called by obj[finish](...)
-    assign(obj, target, finish)
+    assign(obj, data, target, finish)
     {
-        
-        obj.memory.action = name()
-        obj.memory.action_move = 
+        data.action = name()
+        data.action_move = 
         {
             target:target,  /// destination pos
             finish:finish,  /// event to be called when complete
@@ -224,15 +221,6 @@ class MoveTo extends Action
     clear(obj)
     {
         delete obj.memory.action_move
-    }
-}
-
-/// Generic action queue
-class ActionQueue
-{
-    constructor(fn_get_queue)
-    {
-        this.get_queue = fn_get_queue
     }
 }
 
@@ -274,7 +262,6 @@ Object.defineProperty(MetaObject.prototype, 'memory', {
     }
 });
 
-
 module.exports =
 {
     addType : function(type)
@@ -304,14 +291,36 @@ module.exports =
                 exit = true;
                 break;
         }
-    }, 
+    },
     
     /// Restore action from a memory
     restore : function(object)
     {
-        
+    	///TODO: implement
     },
     
-    MetaObject : MetaObject
+    Spawn : ActionSpawn,    
+    MetaObject : MetaObject,
+    
+    /// Add task to the queue
+    taskqueue_add: function(obj, action)
+    {
+        obj.memory.action_queue = obj.memory.action_queue || []
+        /* Example action queue:
+         * action_queue = [
+         * 		{action : TaskType, event : event_data, ...},
+         * 		{action : TaskType, event : event_data, ...}
+         * ]
+         * TaskType - name of task class
+         * event - data for raising task events
+         * The rest of the fields contain task-specific data
+         */
+        obj.memory.action_queue.push(action)
+    },
+    /// Get first task
+    taskqueue_first : function(obj)
+    {
+    	return obj.memory.action_queue[0]
+    }
 };
 
