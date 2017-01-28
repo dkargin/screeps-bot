@@ -81,6 +81,57 @@ Room.prototype.make_road = function(from, to, skip)
     }
 }
 
+/// Get room current tech level
+/// Used by corporations to get available actions
+
+Room.prototype.get_tech_tier = function()
+{
+	var tick = Game.tick
+	var tiers = [ 300, 300, 300 + 50*5, 300 + 50*10, 300+50*20 ]
+	var capacity = this.energyCapacityAvailable
+	var capabilities = this.get_capabilities()
+	
+	/// TODO: check whether the room has 'mover' capability
+	/// effectively making its energy capped at 300 corresponding to t1
+	var tier = 0
+	
+	for(var i in tiers)
+	{
+		if(tiers[i] < capacity)
+		{
+			tier = i
+		}
+	}
+	
+	return tier
+}
+
+Room.prototype.get_capabilities = function()
+{
+	room.memory.capabilities = room.memory.capabilities || {}
+	
+	var caps = room.memory.capabilities
+	
+	if(!room.memory.last_caps_calc)
+		room.memory.last_caps_calc = Game.tick
+	//var result = 
+	if(tick - room.memory.last_caps_calc > 10)
+	{
+		this.find(FIND_MY_CREEPS, {
+		    filter: function(creep) 
+		    {
+		    	if(creep.get_capabilities)
+	    		{
+		    		var caps = creep.get_capabilities()
+	    		}
+		        return object.getActiveBodyparts(ATTACK) == 0;
+		    }
+		});
+		
+		console.log("Recalculated room capabilities: " + JSON.stringify(caps))
+	}
+	return result
+}
 /// Connect room spawn with mines
 Room.prototype.net_mines = function()
 {

@@ -80,17 +80,17 @@ testCorp.event0 = function(event, result)
 }
 
 
-testCorp.event1 = function(event, result)
+testCorp.event1 = function(result)
 {
 	console.log("<h>Event1 result=</h>" + Actions.resultToString(result))
 }
 
-testCorp.event2 = function(event, result)
+testCorp.event2 = function(result)
 {
 	console.log("<h>Event2 result=</h>" + Actions.resultToString(result))	
 }
 
-testCorp.event3 = function(event, result)
+testCorp.event3 = function(result)
 {
 	console.log("Event3 result=" + Actions.resultToString(result))	
 }
@@ -149,8 +149,11 @@ function test_action_queue()
 	tick = tick + 1
 }
 
+SimpleAI = require('simple.ai')
+
 module.exports.loop = function () 
 {   
+    /*
 	test_action_queue()
 	return
 	
@@ -161,8 +164,8 @@ module.exports.loop = function ()
         for(var i in Game.spawns)
             Game.spawns[i].room.analyse_mines(Game.spawns[i])
     }
-    
-    simple_ai()
+    */
+    SimpleAI.run()
     
     //Corps.update()
     
