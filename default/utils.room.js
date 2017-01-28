@@ -91,44 +91,91 @@ Room.prototype.get_tech_tier = function()
 	var capacity = this.energyCapacityAvailable
 	var capabilities = this.get_capabilities()
 	
+	/// There is no creep to feed the spawn, so 
+	if(!capabilities.feed_spawn)
+		capacity = this.energyAvailable
+	
 	/// TODO: check whether the room has 'mover' capability
 	/// effectively making its energy capped at 300 corresponding to t1
 	var tier = 0
 	
 	for(var i in tiers)
 	{
-		if(tiers[i] < capacity)
+		if(tiers[i] <= capacity)
 		{
 			tier = i
 		}
 	}
 	
+	console.log("Room has tspawn=" + capacity + " tier=" + tier)
+	
 	return tier
 }
 
+/// Sum two key->number tables 
+function sum_table(a, b)
+{
+	var result = clone(a)
+	for(var i in b)
+	{
+		if(!(i in result))
+			result[i] = b[i]
+		else
+		{
+			result[i] += b[i]
+		}
+	}
+	return result
+}
+
+function append_table(result, b)
+{
+	for(var i in b)
+	{
+		if(!(i in result))
+			result[i] = b[i]
+		else
+		{
+			result[i] += b[i]
+		}
+	}
+	return result
+}
+
+
 Room.prototype.get_capabilities = function()
 {
-	room.memory.capabilities = room.memory.capabilities || {}
+	this.memory.capabilities = this.memory.capabilities || {}
 	
-	var caps = room.memory.capabilities
+	var result = this.memory.capabilities
 	
-	if(!room.memory.last_caps_calc)
-		room.memory.last_caps_calc = Game.tick
-	//var result = 
-	if(tick - room.memory.last_caps_calc > 10)
+	if(!this.memory.last_caps_calc)
+		this.memory.last_caps_calc = Game.time
+		
+	
+	if(Game.time - this.memory.last_caps_calc > 10)
 	{
 		this.find(FIND_MY_CREEPS, {
 		    filter: function(creep) 
 		    {
 		    	if(creep.get_capabilities)
-	    		{
+		    	{
 		    		var caps = creep.get_capabilities()
-	    		}
-		        return object.getActiveBodyparts(ATTACK) == 0;
+		    		//console.log("Creep " + creep.name + " has caps: " + JSON.stringify(caps))
+		    		append_table(result, caps)
+		    	}
+		    	else
+		    	{
+		    		console.log("Creep " + creep.name + " has no standard capabilities")
+		    	}
+		    	return false
+		        //return creep.getActiveBodyparts(ATTACK) == 0;
 		    }
 		});
 		
-		console.log("Recalculated room capabilities: " + JSON.stringify(caps))
+		this.memory.last_caps_calc = Game.time
+		
+		console.log("Recalculated room capabilities: " + JSON.stringify(result))
 	}
 	return result
 }

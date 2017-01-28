@@ -24,69 +24,82 @@ Game.check_alive = function(objects)
 
 Object.defineProperty(Source.prototype, 'memory', {
     get: function() {
-        if(_.isUndefined(Memory.sources)) {
-            Memory.sources = {};
+        if(_.isUndefined(Memory._sources)) {
+            Memory._sources = {};
         }
-        if(!_.isObject(Memory.sources)) {
+        if(!_.isObject(Memory._sources)) {
             return undefined;
         }
-        return Memory.sources[this.id] = Memory.sources[this.id] || {};
+        return Memory._sources[this.id] = Memory._sources[this.id] || {};
     },
     set: function(value) {
-        if(_.isUndefined(Memory.sources)) {
-            Memory.sources = {};
+        if(_.isUndefined(Memory._sources)) {
+            Memory._sources = {};
         }
-        if(!_.isObject(Memory.sources)) {
+        if(!_.isObject(Memory._sources)) {
             throw new Error('Could not set source memory');
         }
-        Memory.sources[this.id] = value;
+        Memory._sources[this.id] = value;
     }
 });
 
 Object.defineProperty(StructureContainer.prototype, 'memory', {
     get: function() {
-        if(_.isUndefined(Memory.containers)) {
-            Memory.containers = {};
+        if(_.isUndefined(Memory._containers)) {
+            Memory._containers = {};
         }
-        if(!_.isObject(Memory.containers)) {
+        if(!_.isObject(Memory._containers)) {
             return undefined;
         }
-        return Memory.containers[this.id] = Memory.containers[this.id] || {};
+        return Memory._containers[this.id] = Memory._containers[this.id] || {};
     },
     set: function(value) {
-        if(_.isUndefined(Memory.containers)) {
-            Memory.containers = {};
+        if(_.isUndefined(Memory._containers)) {
+            Memory._containers = {};
         }
-        if(!_.isObject(Memory.containers)) {
+        if(!_.isObject(Memory._containers)) {
             throw new Error('Could not set source memory');
         }
-        Memory.containers[this.id] = value;
+        Memory._containers[this.id] = value;
     }
 });
 
 
 Object.defineProperty(StructureStorage.prototype, 'memory', {
     get: function() {
-        if(_.isUndefined(Memory.storages)) {
-            Memory.storages = {};
+        if(_.isUndefined(Memory._storages)) {
+            Memory._storages = {};
         }
-        if(!_.isObject(Memory.storages)) {
+        if(!_.isObject(Memory._storages)) {
             return undefined;
         }
-        return Memory.storages[this.id] = Memory.storages[this.id] || {};
+        return Memory.storages[this.id] = Memory._storages[this.id] || {};
     },
     set: function(value) {
-        if(_.isUndefined(Memory.storages)) {
-            Memory.storages = {};
+        if(_.isUndefined(Memory._storages)) {
+            Memory._storages = {};
         }
-        if(!_.isObject(Memory.storages)) {
+        if(!_.isObject(Memory._storages)) {
             throw new Error('Could not set source memory');
         }
-        Memory.storages[this.id] = value;
+        Memory._storages[this.id] = value;
     }
 });
 
-
 module.exports = {
-
+	clean_memory : function()
+	{
+		for(var i in Memory.creeps) {
+	        if(!Game.creeps[i]) {
+	            delete Memory.creeps[i];
+	        }
+	    }
+		
+		for(var i in Memory._storages)
+		{
+			var obj = Game.getObjectById(i)
+			if(!obj)
+				delete Memory._storages[i]
+		}
+	}
 };

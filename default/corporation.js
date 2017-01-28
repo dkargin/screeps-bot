@@ -72,6 +72,19 @@ class MineCorp extends Actions.EventHandler
         return this.name
     }
     
+    /// How much we need to invest to make optimal revenue
+    investment_cost()
+    {
+    	var store_cost = 5000
+    	/// Cost for road construction
+    	var road_cost = 300*(this.memory.distance || 0) /// TODO: implement
+    	/// Drill cost
+    	var miner_cost = 0		// TODO: calculate
+    	/// Total cost for all movers
+    	var movers_cost = 0
+    	return store_cost + road_cost + miner_cost + movers_cost
+    }
+    
     /// Check precompiled paths
     check_path()
     {

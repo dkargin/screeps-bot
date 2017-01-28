@@ -80,17 +80,17 @@ testCorp.event0 = function(event, result)
 }
 
 
-testCorp.event1 = function(result)
+testCorp.event1 = function(event, result)
 {
 	console.log("<h>Event1 result=</h>" + Actions.resultToString(result))
 }
 
-testCorp.event2 = function(result)
+testCorp.event2 = function(event, result)
 {
 	console.log("<h>Event2 result=</h>" + Actions.resultToString(result))	
 }
 
-testCorp.event3 = function(result)
+testCorp.event3 = function(event, result)
 {
 	console.log("Event3 result=" + Actions.resultToString(result))	
 }
@@ -170,12 +170,6 @@ module.exports.loop = function ()
     //Corps.update()
     
     /*
-    for(var i in Memory.creeps) {
-        if(!Game.creeps[i]) {
-            delete Memory.creeps[i];
-        }
-    }
-
     for(var u in controllers) {
         controllers[u].start_turn()
     }
@@ -230,6 +224,6 @@ module.exports.loop = function ()
         }
     }
 
-
+    memoryUtils.clean_memory()
     //build(spawn, STRUCTURE_EXTENSION);
 }

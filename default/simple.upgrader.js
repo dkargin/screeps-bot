@@ -7,16 +7,34 @@ var roleUpgrader = {
 	{
 		return [WORK, WORK, CARRY, MOVE]
 	},
-	spawn : function()
+	spawn : function(room)
 	{
+		var tier = room.get_tech_tier()
+		if(tier > 1)
+			return {
+				body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : {
+					role:this.role(), tier: 2 }
+			}
 		return {
-			body : this.body(), mem : {
-				role:this.role() }
+			body : [WORK, WORK, CARRY, MOVE], mem : {
+				role:this.role(), tier : 1 }
 		}
 	},
-	required : 1,
+	
+	get_required: function()
+	{
+		return 1
+	},	
+	/// Return creep capabilities
+	get_capabilities : function()
+	{
+		return {"upgrade" : this.getActiveBodyparts(WORK) }
+	},
     /** @param {Creep} creep **/
-    run: function(creep) {
+    run: function(creep) 
+    {
+    	if(!creep.get_capabilities)
+    		creep.get_capabilities = this.get_capabilities
 
         if(creep.memory.upgrading && creep.carry.energy == 0) {
             creep.memory.upgrading = false;
@@ -28,14 +46,17 @@ var roleUpgrader = {
         }
 
         if(creep.memory.upgrading) {
-            if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(creep.room.controller);
+        	if(!creep.pos.inRangeTo(creep.room.controller, 2))
+        		creep.moveTo(creep.room.controller);
+        	else {
+        		//(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE)
+        		creep.upgradeController(creep.room.controller);
             }
         }
         else {
-            var sources = creep.room.find(FIND_SOURCES);
-            if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(sources[0]);
+            var source = creep.pos.findClosestByPath(FIND_SOURCES);
+            if(source && creep.harvest(source) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(source);
             }
         }
     }

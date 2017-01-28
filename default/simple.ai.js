@@ -11,14 +11,13 @@
 /// Simple behaviours from tutorial
 var simpleBehaviours =
 {
-	'simple.builder' : require('simple.builder'),
 	'simple.upgrader' : require('simple.upgrader'),
 	'simple.miner' : require('simple.miner')
 }
  
 function simple_ai()
 {
-	console.log("Processing simple AI")
+	console.log("Processing simple AI tick=" + Game.time)
 	var population = {}
 	
 	for(var c in simpleBehaviours)
@@ -29,7 +28,7 @@ function simple_ai()
     for(var c in Game.creeps) 
     {
     	var obj = Game.creeps[c]
-    	console.log(c, Game.creeps[c])
+    	//console.log(c, Game.creeps[c])
     	if(!obj)
     	    continue
     	var role = obj.memory.role
@@ -47,12 +46,12 @@ function simple_ai()
 		var pop = population[role]
 		var controller = simpleBehaviours[role]
 		
-		//console.log("Role="+role+" has pop=" +pop + " req="+ controller.required)
-		if(pop < controller.required)
+		console.log("Role="+role+" has pop=" +pop + " req="+ controller.get_required())
+		if(pop < controller.get_required())
 		{
 		   
 			var spawn = Game.spawns.Spawn1 
-			var desc = controller.spawn()
+			var desc = controller.spawn(spawn.room)
 			var name = spawn.new_name(role) 
 			
 			var result = spawn.createCreep(desc.body, name, desc.mem)
@@ -61,6 +60,10 @@ function simple_ai()
 			    console.log("Spawned role="+role+" name="+name+" desc.name="+desc.role + " body=" + desc.body)
 				spawn.next_name()
 				break
+			}
+			else if(result == ERR_NAME_EXISTS)
+			{
+				spawn.next_name()
 			}
 			else
 			{

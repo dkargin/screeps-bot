@@ -1,40 +1,141 @@
 /**
  * 
  */
-var roleHarvester = {
+var State =
+{
+	Mining : 0,
+	Returning : 1,
+}
+
+var roleHarvester = 
+{
 	role : function()
 	{
 		return 'simple.miner'
 	},
-	spawn : function() {
+	
+	spawn : function(room) 
+	{
+		var tier = room.get_tech_tier()
+		if(tier > 1)
+			return {
+				body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : {
+					role:this.role(), tier: 2 }
+			}
 		return {
 			body : [WORK, WORK, CARRY, MOVE], mem : {
-				role:this.role() }
+				role:this.role(), tier : 1 }
 		}
 	},
-	required : 2,
+	/// Return creep capabilities
+	get_capabilities : function()
+	{		
+		return {
+			mine : this.getActiveBodyparts(WORK), 
+			feed_spawn : this.getActiveBodyparts(CARRY) 
+		}
+	},
+	
+	get_required: function()
+	{
+		return 4
+	},
+	
     /** @param {Creep} creep **/
-    run: function(creep) {
-        console.log("Processing creep=" + creep.name + " role=" + creep.memory.role)
-        if(creep.carry.energy < creep.carryCapacity) {
-            var sources = creep.room.find(FIND_SOURCES);
-            if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(sources[0]);
+	process_mining: function(creep)
+	{
+		/// Go mining
+        if(creep.carry.energy < creep.carryCapacity) 
+        {
+        	var source = creep.pos.findClosestByPath(FIND_SOURCES);
+            if(source && creep.harvest(source) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(source);
             }
         }
-        else {
-            var targets = creep.room.find(FIND_STRUCTURES, {
-                    filter: (structure) => {
-                        return (structure.structureType == STRUCTURE_EXTENSION ||
-                                structure.structureType == STRUCTURE_SPAWN ||
-                                structure.structureType == STRUCTURE_TOWER) && structure.energy < structure.energyCapacity;
-                    }
-            });
-            if(targets.length > 0) {
-                if(creep.transfer(targets[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(targets[0]);
+        else
+        { 
+        	this.set_state(creep, State.Returning)
+        	creep.say("Return")
+        }
+	},
+	
+	process_returning : function(creep)
+	{
+		if(creep.carry.energy == 0)
+    	{
+    		creep.target = 0
+    		this.set_state(creep, State.Mining)
+    		creep.say("Gomine")
+    		return true
+    	}
+    	
+		if(!creep.target)
+		{
+        	var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                filter: (structure) => 
+        		{
+                    return (structure.structureType == STRUCTURE_EXTENSION ||
+                            structure.structureType == STRUCTURE_SPAWN ||
+                            structure.structureType == STRUCTURE_TOWER) && structure.energy < structure.energyCapacity;
                 }
-            }
+	        });
+        	creep.target = target
+        	creep.target_action = () => creep.transfer(creep.target, RESOURCE_ENERGY)
+		}
+		
+		if(!creep.target)
+		{
+			if(creep.target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES))
+			{
+				creep.target_action = () => creep.build(creep.target);
+			}
+		}
+		
+		if(creep.target && creep.target_action) 
+		{
+			if(creep.target_action() == ERR_NOT_IN_RANGE) {
+	            creep.moveTo(creep.target);
+	        }
+		}
+		else
+		{
+			delete creep.target
+			delete creep.target_action
+		}
+		return false
+	},
+	process_fsm : function(creep) {
+		switch(creep.memory.state)
+        {
+        case State.Mining: return this.process_mining(creep)
+        case State.Returning: return this.process_returning(creep)
+        }
+		return false
+	},
+	get_state : function(creep)
+	{
+		return creep.memory.state 
+	},
+	set_state : function(creep, new_state)
+	{
+		creep.memory.state = new_state
+	},
+    run: function(creep) 
+    {
+    	creep.get_capabilities = this.get_capabilities
+        if(!('state' in creep.memory))
+        {
+        	console.log("Implanting state to a creep")
+        	this.set_state(creep, State.Mining)
+        }
+        	
+        if(Memory.debug && Memory.debug.simple_miner)
+        	console.log("Processing creep=" + creep.name + " role=" + creep.memory.role + " state=" + this.get_state(creep))
+        
+        for(var i = 1; i < 5; i++)
+        {
+	        if(!this.process_fsm(creep))
+	        	break
         }
     }
 };
