@@ -12,11 +12,11 @@ module.exports = {
 	{
 		var tier = room.get_tech_tier()
 		if(tier > 1)
-			return {
+			return {name : "SB", 
 				body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : {
 					role:this.role(), tier: 2 }
 			}
-		return {
+		return {name : "SB",
 			body : [WORK, WORK, CARRY, MOVE], mem : {
 				role:this.role(), tier : 1 }
 		}

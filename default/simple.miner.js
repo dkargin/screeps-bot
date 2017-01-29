@@ -21,10 +21,10 @@ var roleHarvester =
 		var tier = room.get_tech_tier()
 		if(tier < 2)
 			return {
-				body : [WORK, WORK, CARRY, MOVE], mem : {role:this.role(), tier : 1 }
+				name: 'SM', body : [WORK, WORK, CARRY, MOVE], mem : {role:this.role(), tier : 1 }
 			}
 		return {
-				body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : { role:this.role(), tier: 2 }
+				name: 'SM', body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : { role:this.role(), tier: 2 }
 			}
 	},
 	/// Return creep capabilities
@@ -66,7 +66,7 @@ var roleHarvester =
         else
         {
         	var caps = creep.room.get_capabilities()
-        	if(caps.servitor == 0)
+        	if(!caps.servitor)
         	{
 	        	this.set_state(creep, State.Returning)
 	        	console.log("No servitor is available")

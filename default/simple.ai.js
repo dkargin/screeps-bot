@@ -15,7 +15,6 @@ var simpleBehaviours =
 	'simple.servitor' : require('simple.servitor'),
 	'simple.builder' : require('simple.builder'),
 	'simple.upgrader' : require('simple.upgrader'),
-	
 }
  
 function simple_ai()
@@ -50,7 +49,7 @@ function simple_ai()
 		}
     }
 	
-	console.log("Current population: " + JSON.stringify(population))
+	//console.log("Current population: " + JSON.stringify(population))
 	
 	for(var rname in population)
 	{
@@ -79,7 +78,7 @@ function simple_ai()
 			if(pop < controller.get_desired_population(room))
 			{   
 				var desc = controller.spawn(room)
-				var name = spawn.new_name(role) 
+				var name = spawn.new_name(desc.name || role) 
 				
 				var result = spawn.createCreep(desc.body, name, desc.mem)
 				if(_.isString(result)) 
