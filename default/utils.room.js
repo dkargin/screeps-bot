@@ -7,22 +7,23 @@
  * mod.thing == 'a thing'; // true
  */
  
-function list_free_spots(pos)
+RoomPosition.prototype.list_free_spots = function()
 {
     var spots = []
+    var spot_pos = new RoomPosition(this.x,this.y, this.roomName)
     
-    for(var x = pos.x-1; x <= pos.x+1; x++)
-        for(var y = pos.y-1; y <= pos.y+1; y++)
+    for(var x = this.x-1; x <= this.x+1; x++)
+        for(var y = this.y-1; y <= this.y+1; y++)
         {
-            if(x == pos.x && y == pos.y)
+            if(x == this.x && y == this.y)
                 continue;
-            var spot_pos = new RoomPosition(x,y, mine.pos.roomName)
+            
+            [spot_pos.x,spot_pos.y]  = [x, y]
+            
             var tile = Game.map.getTerrainAt(spot_pos)
 
             if(tile != 'wall')
-            {
-                spots.push(spot_pos)
-            }
+                spots.push([x,y])
         }
     return spots
 }
@@ -147,14 +148,13 @@ Room.prototype.get_capabilities = function()
 {
 	this.memory.capabilities = this.memory.capabilities || {}
 	
-	var result = this.memory.capabilities
-	
 	if(!this.memory.last_caps_calc)
 		this.memory.last_caps_calc = Game.time
-		
 	
 	if(Game.time - this.memory.last_caps_calc > 10)
 	{
+		this.memory.capabilities = {}
+		var result = this.memory.capabilities
 		this.find(FIND_MY_CREEPS, {
 		    filter: function(creep) 
 		    {
@@ -177,7 +177,7 @@ Room.prototype.get_capabilities = function()
 		
 		console.log("Recalculated room capabilities: " + JSON.stringify(result))
 	}
-	return result
+	return this.memory.capabilities
 }
 /// Connect room spawn with mines
 Room.prototype.net_mines = function()

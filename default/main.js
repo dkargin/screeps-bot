@@ -5,6 +5,16 @@ var Actions = require('utils.action')
 
 var lastIndex = 0;
 
+console.logch = function(channel, data)
+{
+	Memory.debug = Memory.debug || {}
+	Memory.debug[channel] = Memory.debug[channel] || true
+	
+	
+	if(Memory.debug[channel])
+		console.log(channel + ":" + data)
+}
+
 function getRandomFreePos(startPos, distance) {
     var x,y;
     do {
@@ -95,75 +105,24 @@ testCorp.event3 = function(event, result)
 	console.log("Event3 result=" + Actions.resultToString(result))	
 }
 
-var tick = 0
-
-function test_event()
-{
-    testCorp.executed = false
-    var event = testCorp.makeHandler('event0')
-    
-    testCorp.raise(event)
-    if(!testCorp.executed)
-    {
-        console.log("<b>Failed to run event handler!!!</b>")
-        return false
-    }
-    return true
-}
-
-function test_action_queue()
-{
-	var obj = Game.spawns.Spawn1
-	
-	/// Initialize default action types
-	if(tick == 0)
-	{
-	    if(!test_event())
-	        return
-	
-		console.log("<b> ======================Initializing action test =================</b>")
-		Actions.init_types()
-		
-		Actions.taskqueue_clear(obj)
-		
-		Actions.addTaskWait(obj, 3, testCorp.makeHandler('event1'))
-		Actions.addTaskWait(obj, 7, testCorp.makeHandler('event2'))
-		Actions.addTaskWait(obj, 5, testCorp.makeHandler('event3'))
-		Actions.addTaskWait(obj, 8, testCorp.makeHandler('event3'))
-	}
-	
-	/*
-	if(tick == 3)
-	{
-		Actions.taskqueue_pop(obj)
-	}*/
-	
-	Actions.taskqueue_process(obj)
-	
-	if(tick > 24)
-	{
-		if(Actions.taskqueue_length(obj) != 0)
-			console.log("!!!Task queue is not empty!!!")
-	}
-	
-	tick = tick + 1
-}
-
-SimpleAI = require('simple.ai')
+var SimpleAI = require('simple.ai')
 
 module.exports.loop = function () 
 {   
+	if(firstTick)
+    {
+        firstTick = false;
+        
+        console.log("<b> ====================== Script has restarted =================</b>")
+		
+        for(var i in Game.spawns)
+            Game.spawns[i].room.analyse_mines(Game.spawns[i])
+    }
     /*
 	test_action_queue()
 	return
 	
-    if(firstTick)
-    {
-        firstTick = false;
-        
-        for(var i in Game.spawns)
-            Game.spawns[i].room.analyse_mines(Game.spawns[i])
-    }
+    
     */
     SimpleAI.run()
     

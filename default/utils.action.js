@@ -458,3 +458,57 @@ module.exports =
     }
 };
 
+
+var tick = 0
+
+function test_event()
+{
+    testCorp.executed = false
+    var event = testCorp.makeHandler('event0')
+    
+    testCorp.raise(event)
+    if(!testCorp.executed)
+    {
+        console.log("<b>Failed to run event handler!!!</b>")
+        return false
+    }
+    return true
+}
+
+function test_action_queue()
+{
+	var obj = Game.spawns.Spawn1
+	
+	/// Initialize default action types
+	if(tick == 0)
+	{
+	    if(!test_event())
+	        return
+	
+		console.log("<b> ======================Initializing action test =================</b>")
+		Actions.init_types()
+		
+		Actions.taskqueue_clear(obj)
+		
+		Actions.addTaskWait(obj, 3, testCorp.makeHandler('event1'))
+		Actions.addTaskWait(obj, 7, testCorp.makeHandler('event2'))
+		Actions.addTaskWait(obj, 5, testCorp.makeHandler('event3'))
+		Actions.addTaskWait(obj, 8, testCorp.makeHandler('event3'))
+	}
+	
+	/*
+	if(tick == 3)
+	{
+		Actions.taskqueue_pop(obj)
+	}*/
+	
+	Actions.taskqueue_process(obj)
+	
+	if(tick > 24)
+	{
+		if(Actions.taskqueue_length(obj) != 0)
+			console.log("!!!Task queue is not empty!!!")
+	}
+	
+	tick = tick + 1
+}

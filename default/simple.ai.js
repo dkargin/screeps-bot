@@ -20,10 +20,6 @@ function simple_ai()
 	console.log("Processing simple AI tick=" + Game.time)
 	var population = {}
 	
-	for(var c in simpleBehaviours)
-	{
-	    population[c] = 0
-	}
 	/// Process simple behaviours
     for(var c in Game.creeps) 
     {
@@ -35,39 +31,54 @@ function simple_ai()
     	if(obj && obj.memory.role in simpleBehaviours)
 		{
 		    var role =  obj.memory.role
+		    var rname = obj.pos.roomName
     		simpleBehaviours[role].run(obj)
-    		population[role] = population[role] || 0
-    		population[role] ++
+    		
+    		population[rname] = population[rname] || {}
+		    
+		    if(!population[rname][role])
+		    	population[rname][role] = 1
+	    	else
+	    		population[rname][role] ++
 		}
     }
 	
-	for(var role in population)
+	for(var rname in population)
 	{
-		var pop = population[role]
-		var controller = simpleBehaviours[role]
+		var roomPop = population[room]
+		var room = Game.rooms[rname]
 		
-		console.log("Role="+role+" has pop=" +pop + " req="+ controller.get_required())
-		if(pop < controller.get_required())
+		for(var role in roomPop)
 		{
-		   
-			var spawn = Game.spawns.Spawn1 
-			var desc = controller.spawn(spawn.room)
-			var name = spawn.new_name(role) 
+			var pop = roomPop[role]
+			var controller = simpleBehaviours[role]
+			//console.log("spawn", "Role="+role+" has pop=" +pop + " req="+ controller.get_required())
+			var spawns = room.find(FIND_SPAWNS)
+			if(spawns.length == 0)
+				continue
+				
+			var spawn = spawns[0]
 			
-			var result = spawn.createCreep(desc.body, name, desc.mem)
-			if(_.isString(result)) 
-			{
-			    console.log("Spawned role="+role+" name="+name+" desc.name="+desc.role + " body=" + desc.body)
-				spawn.next_name()
-				break
-			}
-			else if(result == ERR_NAME_EXISTS)
-			{
-				spawn.next_name()
-			}
-			else
-			{
-			    //console.log("Failed to spawn="+result)
+			if(pop < controller.get_required(rooms))
+			{   
+				var desc = controller.spawn(room)
+				var name = spawn.new_name(role) 
+				
+				var result = spawn.createCreep(desc.body, name, desc.mem)
+				if(_.isString(result)) 
+				{
+					//console.log("spawn", "Spawned role="+role+" name="+name+" desc.name="+desc.role + " body=" + desc.body)
+					spawn.next_name()
+					break
+				}
+				else if(result == ERR_NAME_EXISTS)
+				{
+					spawn.next_name()
+				}
+				else
+				{
+				    //console.log("Failed to spawn="+result)
+				}
 			}
 		}
 	}

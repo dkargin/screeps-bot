@@ -222,27 +222,32 @@ class MineCorp extends Actions.EventHandler
             storage_sites[s].memory.type = "source"
             storage_sites[s].memory.corp = this.corp_name()
         }
-
-        console.log("Corp " + this.corp_name() + " has found " + storage_sites.length + " storage sites near mine " + mine.id)
+        
+        var storage_build_sites = mine.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, 
+        {
+            filter: { structureType: STRUCTURE_CONTAINER }
+        });
+        
 
         if(this.memory.storage < 2)
         {
-            var storage_build_sites = mine.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, 
-            {
-                filter: { structureType: STRUCTURE_CONTAINER }
-            });
             
             if(storage_build_sites.length > 0)
                 this.memory.storage = 1
         }
         
-        console.log("Found "+storage_build_sites.length + " storage build sites near mine " + mine.id)
+        //console.log("Found "+storage_build_sites.length + " storage build sites near mine " + mine.id)
+        
+        console.log(this.corp_name() + " storages=" + storage_sites.length + " planned=" )
         
         var path = pos.findPathTo(mine.pos)
         this.memory.distance = path.length
         
         var max = 0
         var storage_pos
+        var spots = mine.pos.list_free_spots()
+        
+        mine.memory.spots = spots.length
         
         if(path)
         {
@@ -251,7 +256,13 @@ class MineCorp extends Actions.EventHandler
             if(this.has_storage() == 0)
             {
                 storage_pos = new RoomPosition(finish.x, finish.y, pos.roomName)
-                mine.room.createConstructionSite(pos, STRUCTURE_CONTAINER);
+                mine.memory.drop_x = finish.x
+                mine.memory.drop_y = finish.y
+                var result = mine.room.createConstructionSite(pos, STRUCTURE_CONTAINER);
+                if(result != OK)
+                {
+                	
+                }
             }
         }
     }
@@ -321,7 +332,7 @@ function getCorpForMine(mine, center)
 {
     if(mine.memory.corp)
     {
-        corp = Corporations[mine.memory.corp]
+        var corp = Corporations[mine.memory.corp]
         if(corp)
             return corp
     }

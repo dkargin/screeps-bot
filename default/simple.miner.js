@@ -1,10 +1,12 @@
 /**
  * 
  */
+
 var State =
 {
 	Mining : 0,
 	Returning : 1,
+	Dropping : 2, 	/// Going to drop
 }
 
 var roleHarvester = 
@@ -17,14 +19,19 @@ var roleHarvester =
 	spawn : function(room) 
 	{
 		var tier = room.get_tech_tier()
-		if(tier > 1)
+		switch(tier)
+		{
+		case 0:
+		case 1:
+			return {
+				body : [WORK, WORK, CARRY, MOVE], mem : {
+					role:this.role(), tier : 1 }
+			}
+		default:
 			return {
 				body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : {
 					role:this.role(), tier: 2 }
 			}
-		return {
-			body : [WORK, WORK, CARRY, MOVE], mem : {
-				role:this.role(), tier : 1 }
 		}
 	},
 	/// Return creep capabilities
@@ -36,7 +43,7 @@ var roleHarvester =
 		}
 	},
 	
-	get_required: function()
+	get_required: function(room)
 	{
 		return 4
 	},
@@ -51,11 +58,24 @@ var roleHarvester =
             if(source && creep.harvest(source) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(source);
             }
+            else
+            {
+            	creep.target = source
+            }
         }
         else
-        { 
-        	this.set_state(creep, State.Returning)
-        	creep.say("Return")
+        {
+        	var caps = creep.room.get_capabilities()
+        	if(!caps.servitor)
+        	{
+	        	this.set_state(creep, State.Returning)
+	        	creep.say("Return")
+        	}
+        	else
+        	{
+        		this.set_state(creep, State.Dropping)
+        		creep.say("Drop")
+        	}
         }
 	},
 	
