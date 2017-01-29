@@ -19,20 +19,13 @@ var roleHarvester =
 	spawn : function(room) 
 	{
 		var tier = room.get_tech_tier()
-		switch(tier)
-		{
-		case 0:
-		case 1:
+		if(tier < 2)
 			return {
-				body : [WORK, WORK, CARRY, MOVE], mem : {
-					role:this.role(), tier : 1 }
+				body : [WORK, WORK, CARRY, MOVE], mem : {role:this.role(), tier : 1 }
 			}
-		default:
-			return {
-				body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : {
-					role:this.role(), tier: 2 }
+		return {
+				body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : { role:this.role(), tier: 2 }
 			}
-		}
 	},
 	/// Return creep capabilities
 	get_capabilities : function()
@@ -43,7 +36,14 @@ var roleHarvester =
 		}
 	},
 	
-	get_required: function(room)
+	get_demands : function()
+	{
+		return {
+			servitor : 1
+		}
+	},
+	
+	get_desired_population: function(room)
 	{
 		return 4
 	},
@@ -66,15 +66,17 @@ var roleHarvester =
         else
         {
         	var caps = creep.room.get_capabilities()
-        	if(!caps.servitor)
+        	if(caps.servitor == 0)
         	{
 	        	this.set_state(creep, State.Returning)
+	        	console.log("No servitor is available")
 	        	creep.say("Return")
         	}
         	else
         	{
-        		this.set_state(creep, State.Dropping)
         		creep.say("Drop")
+        		creep.room.servitor_take(creep.pos, creep.carry.energy)
+        		creep.drop(RESOURCE_ENERGY);
         	}
         }
 	},

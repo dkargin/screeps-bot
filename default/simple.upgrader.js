@@ -7,6 +7,7 @@ var roleUpgrader = {
 	{
 		return [WORK, WORK, CARRY, MOVE]
 	},
+	
 	spawn : function(room)
 	{
 		var tier = room.get_tech_tier()
@@ -21,14 +22,24 @@ var roleUpgrader = {
 		}
 	},
 	
-	get_required: function()
+	get_demands : function()
 	{
-		return 1
-	},	
+		return {
+			servitor : 1
+		}
+	},
+	
+	get_desired_population: function(room)
+	{
+		var caps = room.get_capabilities()
+		if(caps.miner > 0)
+			return caps.mine / 2
+		return 0
+	},
 	/// Return creep capabilities
 	get_capabilities : function()
 	{
-		return {"upgrade" : this.getActiveBodyparts(WORK) }
+		return {upgrade : this.getActiveBodyparts(WORK) }
 	},
     /** @param {Creep} creep **/
     run: function(creep) 

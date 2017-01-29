@@ -206,11 +206,14 @@ class MineCorp extends Actions.EventHandler
     /// Calculate data for a mine
     analyse_mine()
     {
+    	var msg = ""
         var mine = this.get_mine()
         
         var pos = this.get_unload_pos()
         
-        var storage_sites = pos.findInRange(FIND_STRUCTURES, 2, 
+        var tier = mine.room.get_tech_tier()
+        
+        var storage_sites = mine.pos.findInRange(FIND_STRUCTURES, 2, 
         {
             filter: { structureType: STRUCTURE_CONTAINER }
         });
@@ -227,18 +230,15 @@ class MineCorp extends Actions.EventHandler
         {
             filter: { structureType: STRUCTURE_CONTAINER }
         });
-        
 
         if(this.memory.storage < 2)
         {
-            
             if(storage_build_sites.length > 0)
                 this.memory.storage = 1
         }
         
         //console.log("Found "+storage_build_sites.length + " storage build sites near mine " + mine.id)
-        
-        console.log(this.corp_name() + " storages=" + storage_sites.length + " planned=" )
+        msg = msg+(this.corp_name() + " storages=" + storage_sites.length)
         
         var path = pos.findPathTo(mine.pos)
         this.memory.distance = path.length
@@ -253,18 +253,21 @@ class MineCorp extends Actions.EventHandler
         {
             var finish = path[path.length-2];
             
-            if(this.has_storage() == 0)
+            if(this.has_storage() == 0 && tier > 1)
             {
                 storage_pos = new RoomPosition(finish.x, finish.y, pos.roomName)
                 mine.memory.drop_x = finish.x
                 mine.memory.drop_y = finish.y
-                var result = mine.room.createConstructionSite(pos, STRUCTURE_CONTAINER);
+                var result = mine.room.createConstructionSite(storage_pos, STRUCTURE_CONTAINER);
                 if(result != OK)
                 {
-                	
+                	msg += ("- build pos=" + storage_pos + " failed: " + result)
                 }
             }
         }
+        
+        //if(msg.lenth > 0)
+        console.log(msg)
     }
     
     /// Event handler for created drill

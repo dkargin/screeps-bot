@@ -107,9 +107,7 @@ Room.prototype.get_tech_tier = function()
 			tier = i
 		}
 	}
-	
-	console.log("Room has tspawn=" + capacity + " tier=" + tier)
-	
+	//console.log("Room has tspawn=" + capacity + " tier=" + tier)
 	return tier
 }
 
