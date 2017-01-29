@@ -67,9 +67,12 @@ Room.prototype.servitor_take = function(pos, amount)
 /// @time - time of the delivery
 Room.prototype.servitor_give = function(obj, amount, time)
 {
+	console.log("===> Servitor Give " + obj.name + " amount="+amount)
 	/// Ensure table exists
-	this.memory.servitor_give = this.memory.servitor_give || {}
-	this.memory.servigor_give[obj._id] = this.memory.servigor_give[obj._id] || {amount : amount, time: time}
+	Memory.servitor_give = Memory.servitor_give || {}
+	Memory.servitor_give[obj.id] = Memory.servitor_give[obj.id] || {amount : amount, time: time}
+	
+	
 }
 
 
@@ -183,15 +186,27 @@ module.exports = {
 		}
 		
 		/// And then find 'pick' targets 
-		/*
+		Memory.servitor_give = Memory.servitor_give || {}
 		if(!creep.target)
 		{
-			if(creep.target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES))
+			var target = creep.pos.findClosestByPath(FIND_MY_CREEPS, {
+                filter: (obj) => 
+        		{
+        			if(!(obj.id in Memory.servitor_give))
+        				return false;
+        			return true
+                }
+	        });
+			
+			creep.target = target
+			console.log("He wants to get rez: " + creep.target)
+			
+			if(creep.target)
 			{
-				creep.target_action = () => creep.build(creep.target);
+				creep.target_action = () => creep.transfer(creep.target, RESOURCE_ENERGY);
 			}
 		}
-		*/
+		
 		if(creep.target && creep.target_action) 
 		{
 			if(creep.target_action() == ERR_NOT_IN_RANGE) {

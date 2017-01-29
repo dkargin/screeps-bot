@@ -1,7 +1,7 @@
-var roleUpgrader = {
+module.exports = {
 	role : function()
 	{
-		return 'simple.upgrader'
+		return 'simple.builder'
 	},
 	body : function()
 	{
@@ -31,33 +31,38 @@ var roleUpgrader = {
 	
 	get_desired_population: function(room)
 	{
-		var caps = room.get_capabilities()
-		if(caps.mine > 0)
-			return caps.mine / 2
 		return 2
 	},
+	
 	/// Return creep capabilities
 	get_capabilities : function()
 	{
-		return {upgrade : this.getActiveBodyparts(WORK) }
+		return {build : this.getActiveBodyparts(WORK) }
 	},
     /** @param {Creep} creep **/
     run: function(creep) 
     {
     	creep.get_capabilities = this.get_capabilities
     	
-    	creep.memory.inrange = creep.memory.inrange || false
+    	if(!creep.target)
+		{
+			if(creep.target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES))
+			{
+				creep.target_action = () => creep.build(creep.target);
+			}
+		}
     	
-    	if(!creep.memory.inrange && creep.pos.inRangeTo(creep.room.controller, 2))
-    		creep.memory.inrange = true
-    		
-    	if(!creep.memory.inrange) {
-    		creep.moveTo(creep.room.controller);
-    	}
-    	else 
-    	{
-    		creep.upgradeController(creep.room.controller);
-        }
+    	if(creep.target && creep.target_action) 
+		{
+			if(creep.target_action() == ERR_NOT_IN_RANGE) {
+	            creep.moveTo(creep.target);
+	        }
+		}
+		else
+		{
+			delete creep.target
+			delete creep.target_action
+		}
     	
     	if(creep.carry.energy == 0)
     	{
@@ -66,5 +71,3 @@ var roleUpgrader = {
     	}
     }
 };
-
-module.exports = roleUpgrader;

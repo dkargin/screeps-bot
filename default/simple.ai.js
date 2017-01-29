@@ -13,6 +13,7 @@ var simpleBehaviours =
 {
 	'simple.miner' : require('simple.miner'),
 	'simple.servitor' : require('simple.servitor'),
+	'simple.builder' : require('simple.builder'),
 	'simple.upgrader' : require('simple.upgrader'),
 	
 }
@@ -49,7 +50,7 @@ function simple_ai()
 		}
     }
 	
-	//console.log("Current population: " + JSON.stringify(population))
+	console.log("Current population: " + JSON.stringify(population))
 	
 	for(var rname in population)
 	{
