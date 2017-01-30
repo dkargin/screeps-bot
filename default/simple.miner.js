@@ -124,8 +124,7 @@ module.exports = new class extends CreepBase.Behaviour
 	
 	get_desired_population(room)
 	{
-		return 1
-		//return 4
+		return room.get_mine_spots()
 	}
 	
 	init(creep)

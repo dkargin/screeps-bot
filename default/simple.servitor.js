@@ -237,11 +237,13 @@ module.exports = new class extends CreepBase.Behaviour
 	{
 		var caps = room.get_capabilities()
 		
-		var result = 0
+		var result = 3
+		/*
 		if(caps.mine > 0)
 			result += ((caps.mine+1) /2)
 		if(caps.upgrade > 0)
-			result += (caps.upgrade+1)/4 
+			result += (caps.upgrade+1)/4
+		*/ 
 		return result
 	}
 	

@@ -64,7 +64,7 @@ module.exports = new class extends CreepBase.Behaviour
 	
 	get_desired_population(room)
 	{
-		return 0
+		return 2
 	}
 	
 	/// Return creep capabilities
@@ -75,7 +75,6 @@ module.exports = new class extends CreepBase.Behaviour
 	
 	init(creep)
 	{
-		creep.get_capabilities = this.get_capabilities	
 		creep.override_states({Job : process_job})
 	}
 };

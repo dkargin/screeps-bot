@@ -47,7 +47,7 @@ Creep.prototype.get_state_handler = function(state)
 	}
 	else
 	{
-		console.log("No override " + state + " is found for " + this.name + ": handlers=" + JSON.stringify(this.custom_handlers))
+		console.log("No override " + state + " is found for " + this.name + ": handlers=" + handlers_stringify(this.custom_handlers))
 	}
 	return States[state]
 }
@@ -117,6 +117,8 @@ function process_idle(creep)
 function process_free(creep)
 {
 	console.log(creep.name + " role=" + creep.memory.role + " got default Free jandler")
+	// Automatically switch to 'Job' state
+	creep.set_state('Job')
 }
 
 function process_job_dummy(creep)
@@ -150,11 +152,12 @@ module.exports =
 		run(creep, first) 
 	    {
 			creep.get_capabilities = this.get_capabilities
+			this.init(creep)
 			
 	    	if(first || !creep.memory.initialized)
 	    	{
 	    		console.log("!!!!!! Initializing first tick for " + creep.name)
-				this.init(creep)
+				//this.init(creep)
 				creep.memory.initialized = true
 	    	}
 	    	

@@ -141,6 +141,18 @@ function append_table(result, b)
 	return result
 }
 
+Room.prototype.get_mine_spots = function(force)
+{
+	if(!this.memory.last_mine_calc)
+		this.memory.last_mine_calc = Game.time
+	
+	if(force || (Game.time - this.memory.last_caps_calc > 10))
+	{
+		
+	}
+	
+	return 2
+}
 
 Room.prototype.get_capabilities = function(force)
 {
