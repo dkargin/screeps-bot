@@ -52,15 +52,25 @@ Creep.prototype.get_state_handler = function(state)
 	return States[state]
 }
 
+function handlers_stringify(handlers)
+{
+	var result = []
+	for(var key in handlers)
+	{
+		result.push(key)
+	}
+	return JSON.stringify(result)
+}
+
 Creep.prototype.override_states = function(ov)
 {	
 	var handlers = this.custom_handlers
 	for(var state in ov)
 	{
-		console.log("Setting state=" + state)
+//		console.log("Setting state=" + state)
 		handlers[state] = ov[state]
 	}
-	console.log("Overriden states for " + this.name + ": handlers=" + JSON.stringify(this.custom_handlers) + " src:" + JSON.stringify(ov))
+//	console.log("Overriden states for " + this.name + ": handlers=" + handlers_stringify(this.custom_handlers) + " src:" + handlers_stringify(ov))
 }
 
 /// Run single FSM step
@@ -88,7 +98,7 @@ Creep.prototype.process_fsm = function()
     }
     //if(Memory.debug && Memory.debug.simple_miner)
     	//
-    console.log("Processing " + this.name + " role=" + this.memory.role + " state=" + this.get_state())
+    //console.log("Processing " + this.name + " role=" + this.memory.role + " state=" + this.get_state())
     
     for(var i = 1; i < 5; i++)
     {
@@ -149,7 +159,7 @@ module.exports =
 	    	creep.get_capabilities = this.get_capabilities
 	    	
 	    	creep.process_fsm()
-	    	console.log("Global handlers=" + JSON.stringify(CustomHandlers))
+	    	//console.log("Global handlers=" + JSON.stringify(CustomHandlers))
 	    }
 	},
 }
