@@ -16,6 +16,8 @@ var simpleBehaviours =
 	'simple.builder' : require('simple.builder'),
 	'simple.upgrader' : require('simple.upgrader'),
 }
+
+var firstTick = true
  
 function simple_ai()
 {
@@ -38,7 +40,17 @@ function simple_ai()
 		{
 		    var role =  obj.memory.role
 		    var rname = obj.pos.roomName
-    		simpleBehaviours[role].run(obj)
+		    
+		    //try
+		    {
+		    	simpleBehaviours[role].run(obj, firstTick)
+		    }
+		    /*
+		    catch(ex)
+		    {
+		    	console.log("Failed to call role.run " + role + " err=" + ex)
+		    	throw(ex)
+		    }*/
     		
     		population[rname] = population[rname] || {}
 		    
@@ -48,9 +60,9 @@ function simple_ai()
 	    		population[rname][role] ++
 		}
     }
-	
+    
 	//console.log("Current population: " + JSON.stringify(population))
-	
+    /// Now we do process spawn
 	for(var rname in population)
 	{
 		var roomPop = population[rname]
@@ -98,6 +110,8 @@ function simple_ai()
 			}
 		}
 	}
+	
+	firstTick = false
 }
 
 module.exports = {
