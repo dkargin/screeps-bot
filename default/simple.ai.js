@@ -61,7 +61,6 @@ function simple_ai()
 		}
     }
     
-	//console.log("Current population: " + JSON.stringify(population))
     /// Now we do process spawn
 	for(var rname in population)
 	{
@@ -69,6 +68,8 @@ function simple_ai()
 		var room = Game.rooms[rname]
 		var spawns = room.find(FIND_MY_SPAWNS)
 		
+		console.log("Room " + rname + " population=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)))
+    		
 		if(spawns.length == 0)
 		{
 			console.log("No spawns at room " + rname)

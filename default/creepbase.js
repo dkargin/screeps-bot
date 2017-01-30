@@ -149,14 +149,14 @@ module.exports =
 		
 		run(creep, first) 
 	    {
+			creep.get_capabilities = this.get_capabilities
+			
 	    	if(first || !creep.memory.initialized)
 	    	{
 	    		console.log("!!!!!! Initializing first tick for " + creep.name)
 				this.init(creep)
 				creep.memory.initialized = true
 	    	}
-	    	
-	    	creep.get_capabilities = this.get_capabilities
 	    	
 	    	creep.process_fsm()
 	    	//console.log("Global handlers=" + JSON.stringify(CustomHandlers))

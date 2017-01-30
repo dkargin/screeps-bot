@@ -108,12 +108,11 @@ function process_job(creep)
 /** @param {Creep} creep **/
 function process_moveget(creep)
 {
-	console.log(creep.name + " moveget");
-	creep.get_capabilities = this.get_capabilities
+	//console.log(creep.name + " moveget");
 	
 	if(creep.carry.energy == creep.carryCapacity)
 	{
-		this.set_state(State.MovePut)
+		creep.set_state('MovePut')
     	creep.say("Return")
 	}
 	/// Go mining
@@ -141,7 +140,7 @@ function process_moveget(creep)
     }
     else if(creep.carry.energy > 0)
     {
-    	this.set_state(creep, State.MovePut)
+    	creep.set_state('MovePut')
     	creep.say("Return")
     }
 }
@@ -151,7 +150,7 @@ function process_moveput(creep)
 	if(creep.carry.energy == 0)
 	{
 		creep.target = 0
-		creep.set_state(creep, State.MoveGet)
+		creep.set_state('MoveGet')
 		creep.say("Goget")
 		return true
 	}

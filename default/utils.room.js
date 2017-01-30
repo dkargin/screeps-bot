@@ -142,18 +142,19 @@ function append_table(result, b)
 }
 
 
-Room.prototype.get_capabilities = function()
+Room.prototype.get_capabilities = function(force)
 {
 	this.memory.capabilities = this.memory.capabilities || {}
 	
 	if(!this.memory.last_caps_calc)
 		this.memory.last_caps_calc = Game.time
 	
-	if(Game.time - this.memory.last_caps_calc > 10)
+	if(force || (Game.time - this.memory.last_caps_calc > 10))
 	{
 		this.memory.capabilities = {}
 		var result = this.memory.capabilities
-		this.find(FIND_MY_CREEPS, {
+		this.find(FIND_MY_CREEPS, 
+		{
 		    filter: function(creep) 
 		    {
 		    	if(creep.get_capabilities)
@@ -167,13 +168,12 @@ Room.prototype.get_capabilities = function()
 		    		console.log("Creep " + creep.name + " has no standard capabilities")
 		    	}
 		    	return false
-		        //return creep.getActiveBodyparts(ATTACK) == 0;
 		    }
 		});
 		
 		this.memory.last_caps_calc = Game.time
 		
-		console.log("Recalculated room capabilities: " + JSON.stringify(result))
+		//console.log("Recalculated room capabilities: " + JSON.stringify(result))
 	}
 	return this.memory.capabilities
 }
