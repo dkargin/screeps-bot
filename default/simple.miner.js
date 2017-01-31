@@ -96,15 +96,20 @@ module.exports = new class extends CreepBase.Behaviour
 	spawn(room) 
 	{
 		var tier = room.get_tech_tier()
-		if(tier < 2)
+		if(tier >= 3)
 			return {
-				name: 'SM', body : [WORK, WORK, CARRY, MOVE], mem : {role:this.role(), tier : 1 }
-			}
-		return {
-				name: 'SM', body : [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], mem : { role:this.role(), tier: 2 }
+				name: 'SM', body : room.unpack_recipe({work:5, carry:2, move:4}), mem : {role:this.role(), tier : 3 }
+			} 
+		else if(tier == 2)
+			return {
+				name: 'SM', body : room.unpack_recipe({work:4, carry:1, move:2}), mem : { role:this.role(), tier: 2 }
+			}	
+		else
+			return {
+				name: 'SM', body : room.unpack_recipe({work:2, carry:1, move:1}), mem : {role:this.role(), tier : 1 }
 			}
 	}
-	
+
 	/// Return creep capabilities
 	get_capabilities()
 	{		
@@ -120,6 +125,9 @@ module.exports = new class extends CreepBase.Behaviour
 	
 	get_desired_population(room)
 	{
+		var tier = room.get_tech_tier()
+		if(tier >= 3)
+			return 2	/// TODO: number of mines
 		return room.get_mine_spots()
 	}
 	

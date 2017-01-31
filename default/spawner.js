@@ -31,6 +31,9 @@ var pack_recipe = function(recipe)
     return packed
 }
 
+Room.prototype.unpack_recipe = unpack_recipe
+Room.prototype.pack_recipe = pack_recipe
+
 var print_bp_costs = function()
 {
     for(var body in BODYPART_COST)

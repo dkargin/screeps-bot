@@ -25,3 +25,6 @@ tech = room.get_tech()
 
 spots[] = room.get_spots()
 
+calculate needed harvesters:
+
+t3 = 800 -> 6W 2C 2M

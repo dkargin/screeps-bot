@@ -5,6 +5,27 @@ function filter_build_targets(obj)
 	return true
 }
 
+function filter_repair_targets(obj)
+{
+	return obj.hits < obj.hitsMax && obj.hits < 10000
+}
+
+
+var Actions =
+{	
+	build : function(creep, target)
+	{
+		return creep.build(target)
+	},
+	
+	repair : function(creep, target)
+	{
+		return creep.repair(target)
+	}
+}
+
+
+
 function process_job(creep)
 {
 	
@@ -14,6 +35,10 @@ function process_job(creep)
 		if(creep.find_closest_target(FIND_CONSTRUCTION_SITES, filter_build_targets, 'build'))
 		{
 			console.log("Found build target")
+		}
+		else if(creep.find_closest_target(FIND_STRUCTURES, filter_repair_targets, 'repair'))
+		{
+			console.log("Found repair target")
 		}
 		else
 		{
@@ -30,7 +55,17 @@ function process_job(creep)
 				creep.moveTo(target);
 			else
 			{
-				creep.build(target)
+				var action = Actions[creep.memory.action]
+				
+				if(action)
+				{
+					action(creep, target)
+				}
+				else
+				{
+					console.log(creep.name + " has invalid action " + creep.memory.action)
+					creep.clear_target()
+				}
 				
 				if(creep.carry.energy == 0)
 				{
