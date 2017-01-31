@@ -24,6 +24,24 @@ Creep.prototype.get_target_pos = function()
 	return new RoomPosition(raw_target.x, raw_target.y, raw_target.roomName)
 }
 
+/// Return distance between room positions
+function distance(pos1, pos2)
+{
+	if(pos1.roomName != pos2.roomName)
+		return 50
+	return Math.min(Math.abs(pos1.x - pos2.x), Math.abs(pos1.y - pos2.y))
+}
+
+/// Get linear range to the object
+Creep.prototype.rangeto = function(obj)
+{
+	return distance(this.pos, Game.getObjectPos(obj))
+}
+/// Check whether creep should move closer to a target
+function check_should_move(creep)
+{
+	var target_pos = get_target_pos(creep)
+}
 /// Set target
 Creep.prototype.set_target = function(target, action)
 {
@@ -150,7 +168,7 @@ Creep.prototype.process_fsm = function()
     	//
     //console.log("Processing " + this.name + " role=" + this.memory.role + " state=" + this.get_state())
     
-    for(var i = 1; i < 2; i++)
+    for(var i = 0; i < 3; i++)
     {
         if(!this.fsm_step())
         	break
@@ -177,6 +195,7 @@ function process_job_dummy(creep)
 	console.log(creep.name + " role=" + creep.memory.role + " got default Job jandler")
 }
 
+
 /** 
  * Table for all state types. Creeps either add new states here,
  * or rather add overrides to their local tables
@@ -186,6 +205,21 @@ var States =
 	Idle : process_idle,
 	Free : process_free,
 	Job : process_job_dummy,
+	Recycle : function(creep)
+	{
+		var filter = (obj) => obj.structureType == STRUCTURE_SPAWN;
+		if(creep.find_closest_target(FIND_STRUCTURES, filter, 'recycle' ))
+		{
+			var obj = Game.getObjectById(creep.memory.target)
+			if(creep.rangeto(obj) > 1)
+				creep.moveTo(object);
+			else
+			{
+				obj.recycle(creep)
+				creep.room.servitor_take(creep.pos, 100)
+			}
+		}
+	},
 }
 
 module.exports = 

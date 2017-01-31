@@ -19,4 +19,9 @@ Typical life:
 
 
 
-provides: servitor
+Advanced miner calculation
+
+tech = room.get_tech() 
+
+spots[] = room.get_spots()
+

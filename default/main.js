@@ -79,7 +79,6 @@ var run_tower = function(tower)
 var controllers = 
 { 
     harvester : require('role.harvester'),
-    upgrader : require('role.upgrader'),
     mover : require('role.mover'),
 //    expedition : require('role.expedition')
 }
@@ -123,12 +122,16 @@ module.exports.loop = function() { profiler.wrap(function ()
         for(var i in Game.spawns)
             Game.spawns[i].room.analyse_mines(Game.spawns[i])
     }
-    /*
-	test_action_queue()
-	return
 	
-    
-    */
+	for(var r in Game.rooms)
+    {
+        var room = Game.rooms[r]
+        //HoP.administer_room(room)
+        /// Do the towers
+        var towers = room.find(FIND_MY_STRUCTURES, {filter: {structureType: STRUCTURE_TOWER}});
+        _.forEach(towers, run_tower)
+    }
+	
     SimpleAI.run()
     
     //Corps.update()
@@ -136,21 +139,6 @@ module.exports.loop = function() { profiler.wrap(function ()
     /*
     for(var u in controllers) {
         controllers[u].start_turn()
-    }
-    
-    for(var r in Game.rooms)
-    {
-        var room = Game.rooms[r]
-        HoP.administer_room(room)
-        /// Do the towers
-        var towers = room.find(FIND_MY_STRUCTURES, {filter: {structureType: STRUCTURE_TOWER}});
-        for (let towerName in towers) 
-        { 
-            var tower = towers[towerName]; 
-            run_tower(tower)
-            //let creepsInRoom = tower.room.find(FIND_HOSTILE_CREEPS); 
-            //console.log("TOWERS FOUND: " + towers); 
-        }    
     }
 
     for(var name in Game.creeps) 
@@ -178,7 +166,7 @@ module.exports.loop = function() { profiler.wrap(function ()
 */
         if(!spawn.spawning)
         {
-            var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1)
+            var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1, {filter:function (obj) {return obj.ticksToLive < 400}})
             
             if(targets.length > 0)
             {

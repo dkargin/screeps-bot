@@ -117,7 +117,7 @@ function simple_ai()
 				}
 				else
 				{
-				    //console.log("Failed to spawn body " + desc.body + " : "+result)
+				    //console.log("Failed to spawn " + name + "=" + desc.body + " : "+result)
 				}
 			}
 		}

@@ -214,12 +214,6 @@ function filter_creep_take(obj)
 	return result
 }
 
-/// Check whether creep should move closer to a target
-function check_should_move(creep)
-{
-	var target_pos = get_target_pos(creep)
-}
-
 /// Actions to be applied when the target is reached
 var TargetActions = 
 {
@@ -367,8 +361,19 @@ module.exports = new class extends CreepBase.Behaviour
 		var result = 0
 		///Servitors should be limited only by mine rate and travel distance
 		if(caps.mine > 0)
-			result += (caps.mine / 2)
+			result += (caps.mine / 6)
 		return Math.ceil(result)
+	}
+	
+	/// Check servitor tasks
+	check_tasks()
+	{
+		/// 
+		/**
+		 * TODO: iterate through all flags
+		 * 		check resourses under the flag
+		 * 		write last check time to flag memory
+		 */
 	}
 	
 	init(creep)

@@ -36,6 +36,7 @@ function process_mining(creep)
     		creep.say("Drop")
     		creep.room.servitor_take(creep.pos, creep.carry.energy)
     		creep.drop(RESOURCE_ENERGY);
+    		return true
     	}
     }
 }
@@ -55,9 +56,7 @@ function process_returning(creep)
     	var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
             filter: (structure) => 
     		{
-                return (structure.structureType == STRUCTURE_EXTENSION ||
-                        structure.structureType == STRUCTURE_SPAWN ||
-                        structure.structureType == STRUCTURE_TOWER) && structure.energy < structure.energyCapacity;
+                return (structure.structureType == STRUCTURE_SPAWN) && structure.energy < structure.energyCapacity;
             }
         });
     	creep.target = target
@@ -109,10 +108,7 @@ module.exports = new class extends CreepBase.Behaviour
 	/// Return creep capabilities
 	get_capabilities()
 	{		
-		return {
-			mine : this.getActiveBodyparts(WORK), 
-			feed_spawn : this.getActiveBodyparts(CARRY) 
-		}
+		return { mine : this.getActiveBodyparts(WORK) }
 	}
 	
 	get_demands()
