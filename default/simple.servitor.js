@@ -145,8 +145,88 @@ function process_moveget(creep)
     }
 }
 
+/// Transfer energy to an object, suitable for 'transfer' function
+function action_give_object(creep, target)
+{
+	return creep.transfer(target, RESOURCE_ENERGY)
+}
+
+/// Pick from ground
+function action_pick_ground(creep, target)
+{
+	/// TODO: impelement
+}
+
+function action_pick_container(creep, target)
+{
+	/// TODO: implement
+}
+
+function action_pick_creep(creep, target)
+{
+	/// is moving
+}
+
+function filter_structures(obj)
+{
+	t = obj.structureType;
+	return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN || t == STRUCTURE_TOWER) && 
+		obj.energy < obj.energyCapacity;
+}
+
+/// Filter creeps (or any sort of objects) that registered in 'take' table
+function filter_creep_take(obj)
+{
+	return obj.id in Memory.servitor_give
+}
+
+/// Check whether creep should move closer to a target
+function check_should_move(creep)
+{
+	 
+}
+
+///FIND_STRUCTURES
+function find_target(creep, type, filter, action)
+{
+	delete creep.memory.target
+	var target = creep.pos.findClosestByPath(type, {filter: filter});
+	if(target)
+	{
+		creep.memory.target = target.id
+		creep.memory.action = action
+		creep.memory.target_pos = target.pos
+		return true
+	}
+	return false
+}
+
+/// Actions to be applied when the target is reached
+var TargetActions = 
+{
+	pick_container : action_pick_container,
+	pick_creep : action_pick_creep,
+	pick_ground : action_pick_ground,
+	give_object : action_give_object,
+}
+
+function clear_target(creep)
+{
+	if('target' in creep.memory)
+		delete creep.memory.target
+		
+	if('action' in creep.action)
+		delete creep.memory.action
+	
+	if('target_pos' in creep.memory)
+		delete creep.memory.target_pos
+}
+
 function process_moveput(creep)
 {
+	/// And then find 'pick' targets 
+	Memory.servitor_give = Memory.servitor_give || {}
+	
 	if(creep.carry.energy == 0)
 	{
 		creep.target = 0
@@ -156,52 +236,35 @@ function process_moveput(creep)
 	}
 	
 	/// We fill spawn and tower first
-	if(!creep.target)
+	if(!creep.memory.target)
 	{
-    	var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
-            filter: (structure) => 
-    		{
-                return (structure.structureType == STRUCTURE_EXTENSION ||
-                        structure.structureType == STRUCTURE_SPAWN ||
-                        structure.structureType == STRUCTURE_TOWER) && structure.energy < structure.energyCapacity;
-            }
-        });
-    	creep.target = target
-    	creep.target_action = () => creep.transfer(creep.target, RESOURCE_ENERGY)
-	}
-	
-	/// And then find 'pick' targets 
-	Memory.servitor_give = Memory.servitor_give || {}
-	if(!creep.target)
-	{
-		var target = creep.pos.findClosestByPath(FIND_MY_CREEPS, {
-            filter: (obj) => 
-    		{
-    			if(!(obj.id in Memory.servitor_give))
-    				return false;
-    			return true
-            }
-        });
-		
-		creep.target = target
-		console.log("He wants to get rez: " + creep.target)
-		
-		if(creep.target)
+		if( find_target(creep, FIND_STRUCTURES, filter_structures, 'give_object') ||
+			find_target(creep, FIND_MY_CREEPS, filter_creep_take, 'give_object'))
 		{
-			creep.target_action = () => creep.transfer(creep.target, RESOURCE_ENERGY);
+			var obj = Game.getObjectById(creep.memory.object)
+			console.log(creep.name + " transfering res to object at " + obj.pos)
+		}
+		else
+		{
+			console.log(creep.name + " failed to find any GIVE target")
 		}
 	}
 	
-	if(creep.target && creep.target_action) 
+	if(creep.memory.target && creep.memory.action) 
 	{
-		if(creep.target_action() == ERR_NOT_IN_RANGE) {
+		var action = TargetActions[creep.memory.target]
+		var object = Game.getObjectById(creep.memory.object)
+		
+		if(action(creep, object) == ERR_NOT_IN_RANGE) 
+		{
             creep.moveTo(creep.target);
         }
 	}
 	else
 	{
-		delete creep.target
-		delete creep.target_action
+		console.log(creep.name + " cleaning target data")
+		clear_target(creep)
+		return true
 	}
 	return false
 }
@@ -249,7 +312,6 @@ module.exports = new class extends CreepBase.Behaviour
 	
 	init(creep)
 	{
-		creep.get_capabilities = this.get_capabilities
 		creep.override_states({MoveGet : process_moveget, MovePut: process_moveput, Job:process_job})
 	}
 };
