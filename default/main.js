@@ -1,3 +1,8 @@
+
+const profiler = require('screeps-profiler');
+//This line monkey patches the global prototypes.
+profiler.enable();
+
 var memoryUtils = require('memory')
 var roomUtils = require('utils.room')
 var Corps = require('corporation')
@@ -107,7 +112,7 @@ testCorp.event3 = function(event, result)
 
 var SimpleAI = require('simple.ai')
 
-module.exports.loop = function () 
+module.exports.loop = function() { profiler.wrap(function () 
 {   
 	if(firstTick)
     {
@@ -185,4 +190,5 @@ module.exports.loop = function ()
 
     memoryUtils.clean_memory()
     //build(spawn, STRUCTURE_EXTENSION);
+});
 }

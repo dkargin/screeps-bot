@@ -63,10 +63,15 @@ Room.prototype.servitor_take = function(pos, amount)
 /// @time - time of the delivery
 Room.prototype.servitor_give = function(obj, amount, time)
 {
-	console.log("===> Servitor Give " + obj.name + " amount="+amount)
+	
 	/// Ensure table exists
 	Memory.servitor_give = Memory.servitor_give || {}
-	Memory.servitor_give[obj.id] = Memory.servitor_give[obj.id] || {amount : amount, time: time}
+	if(!(Memory.servitor_give[obj.id]))
+	{
+		console.log("===> Servitor Give " + obj.name + " amount="+amount)
+	}
+	
+	Memory.servitor_give[obj.id] = Memory.servitor_give[obj.id] || {amount : amount, time: time, reserved : 0}
 }
 
 /// Get task resources that belong to task flag
@@ -76,7 +81,7 @@ Flag.prototype.get_flag_res = function()
 	var result = {}
 }
 
-function pick_task_flag(flag, creep)
+Flag.prototype.pick_task_flag = function(creep)
 {
 	var energy = creep.pos.findInRange(FIND_DROPPED_ENERGY,1);
     if (energy.length > 0) 
@@ -85,18 +90,18 @@ function pick_task_flag(flag, creep)
     	console.log('found ' + rez.energy + ' energy at ', energy[0].pos);
         creep.pickup(rez);
         
-        flag.amount = rez.amount
+        this.amount = rez.amount
         /// Picked all
         if(rez.amount == 0)
         {
-        	flag.remove()
+        	this.remove()
         	creep.target = undefined
         }
     }
     else
     {
     	console.log("Arrived, but no rez is found")
-    	flag.remove()
+    	this.remove()
     	creep.target = undefined
     }
 }
@@ -106,13 +111,13 @@ function process_job(creep)
 	creep.set_state('MoveGet')
 }
 /** @param {Creep} creep **/
-function process_moveget(creep)
+function process_move_get(creep)
 {
 	//console.log(creep.name + " moveget");
 	
 	if(creep.carry.energy == creep.carryCapacity)
 	{
-		creep.set_state('MovePut')
+		creep.set_state('FindPut')
     	creep.say("Return")
 	}
 	/// Go mining
@@ -131,7 +136,7 @@ function process_moveget(creep)
     	/// Check if target is dropped rez
     	if(creep.pos.getRangeTo(creep.target) == 1)
     	{
-    		pick_task_flag(creep.target, creep)
+    		creep.target.pick_task_flag(creep)
     	}
     	else
     	{
@@ -140,36 +145,55 @@ function process_moveget(creep)
     }
     else if(creep.carry.energy > 0)
     {
-    	creep.set_state('MovePut')
+    	creep.set_state('FindPut')
     	creep.say("Return")
     }
 }
 
-/// Transfer energy to an object, suitable for 'transfer' function
-function action_give_object(creep, target)
+
+
+/**
+ * Wrapper for servitor transfers
+ * Checks transfer amount and decreases 'want' counter 
+**/
+Creep.prototype.servitor_transfe_structure = function(obj)
 {
-	return creep.transfer(target, RESOURCE_ENERGY)
+	//var before = obj.carry.energy
+	var result = this.transfer(obj, RESOURCE_ENERGY)
+	/// TODO: check transfer amount
+	return result
 }
 
-/// Pick from ground
-function action_pick_ground(creep, target)
+Creep.prototype.servitor_transfer_creep = function(obj)
 {
-	/// TODO: impelement
+	if(!obj || !obj.carry)
+	{
+		console.log(this.name + " got strange creep for transfer: " + obj)
+		return ERR_INVALID_TARGET
+	}
+	var before = obj.carry.energy
+	var result = this.transfer(obj, RESOURCE_ENERGY)
+	var transfered = obj.carry.energy - before
+	var needs = Memory.servitor_give[obj.id]
+	if(needs && result == OK)
+	{
+		needs.amount -= transfered
+		needs.reserved -= transfered
+		if(needs.reserved < 0)
+			needs.reserved = 0
+		if(needs.amount <= 0)
+		{
+			console.log(creep.name + " removing servitor_give for obj=" + obj.id)
+			delete Memory.servitor_give[obj.id]
+		}
+	}
+	return result
 }
 
-function action_pick_container(creep, target)
-{
-	/// TODO: implement
-}
-
-function action_pick_creep(creep, target)
-{
-	/// is moving
-}
 
 function filter_structures(obj)
 {
-	t = obj.structureType;
+	var t = obj.structureType;
 	return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN || t == STRUCTURE_TOWER) && 
 		obj.energy < obj.energyCapacity;
 }
@@ -177,71 +201,64 @@ function filter_structures(obj)
 /// Filter creeps (or any sort of objects) that registered in 'take' table
 function filter_creep_take(obj)
 {
-	return obj.id in Memory.servitor_give
+	var result = obj.id in Memory.servitor_give
+	
+	if(obj.id in Memory.servitor_give)
+	{
+		var give = Memory.servitor_give[obj.id]
+		console.log("Creep + " + obj.name + " has GIVE target: " + JSON.stringify(give))
+		return give.amount > give.reserved
+	}
+	return false
+	
+	return result
 }
 
 /// Check whether creep should move closer to a target
 function check_should_move(creep)
 {
-	 
-}
-
-///FIND_STRUCTURES
-function find_target(creep, type, filter, action)
-{
-	delete creep.memory.target
-	var target = creep.pos.findClosestByPath(type, {filter: filter});
-	if(target)
-	{
-		creep.memory.target = target.id
-		creep.memory.action = action
-		creep.memory.target_pos = target.pos
-		return true
-	}
-	return false
+	var target_pos = get_target_pos(creep)
 }
 
 /// Actions to be applied when the target is reached
 var TargetActions = 
 {
-	pick_container : action_pick_container,
-	pick_creep : action_pick_creep,
-	pick_ground : action_pick_ground,
-	give_object : action_give_object,
+	pick_container : function(creep, target) {},
+	pick_creep : function(creep, target) {},
+	pick_ground : function(creep, target) {},
+	give_structure : function(creep, target)
+	{
+		//return creep.transfer(target, RESOURCE_ENERGY)
+		return creep.servitor_transfe_structure(target)
+	},
+	give_creep : function(creep, target)
+	{
+		//return creep.transfer(target, RESOURCE_ENERGY)
+		return creep.servitor_transfer_creep(target)
+	},
 }
 
-function clear_target(creep)
-{
-	if('target' in creep.memory)
-		delete creep.memory.target
-		
-	if('action' in creep.action)
-		delete creep.memory.action
-	
-	if('target_pos' in creep.memory)
-		delete creep.memory.target_pos
-}
-
-function process_moveput(creep)
+function process_find_put(creep)
 {
 	/// And then find 'pick' targets 
 	Memory.servitor_give = Memory.servitor_give || {}
 	
 	if(creep.carry.energy == 0)
 	{
-		creep.target = 0
+		creep.clear_target()
 		creep.set_state('MoveGet')
 		creep.say("Goget")
 		return true
 	}
 	
 	/// We fill spawn and tower first
-	if(!creep.memory.target)
+	if(!creep.has_target())
 	{
-		if( find_target(creep, FIND_STRUCTURES, filter_structures, 'give_object') ||
-			find_target(creep, FIND_MY_CREEPS, filter_creep_take, 'give_object'))
+		//console.log(creep.name + " has no GIVE target")
+		if( creep.find_closest_target(FIND_STRUCTURES, filter_structures, 'give_structure') ||
+			creep.find_closest_target(FIND_MY_CREEPS, filter_creep_take, 'give_creep'))
 		{
-			var obj = Game.getObjectById(creep.memory.object)
+			var obj = Game.getObjectById(creep.memory.target)
 			console.log(creep.name + " transfering res to object at " + obj.pos)
 		}
 		else
@@ -250,24 +267,71 @@ function process_moveput(creep)
 		}
 	}
 	
+	if(creep.has_target()) 
+	{
+		var action = TargetActions[creep.memory.action]
+		if(!action)
+		{
+			console.log(creep.name + " has invalid action. Clearing target")
+			creep.clear_target()
+			return true
+		}
+		var object = Game.getObjectById(creep.memory.target)
+		var result = action(creep, object)
+		switch(result)
+		{
+		case OK:
+			break;
+		case ERR_NOT_IN_RANGE:
+			creep.moveTo(object); 
+			break;
+		case ERR_FULL:
+			console.log(creep.name + " destination is full")
+			creep.clear_target()
+			return true
+		case ERR_INVALID_TARGET:
+			creep.clear_target()
+			return true
+		}
+	}
+	else
+	{
+		console.log(creep.name + " cleaning target data")
+		creep.clear_target()
+		return true
+	}
+	return false
+}
+
+function process_move_put(creep)
+{
 	if(creep.memory.target && creep.memory.action) 
 	{
-		var action = TargetActions[creep.memory.target]
-		var object = Game.getObjectById(creep.memory.object)
+		var action = TargetActions[creep.memory.action]
+		var object = Game.getObjectById(creep.memory.target)
 		
 		if(action(creep, object) == ERR_NOT_IN_RANGE) 
 		{
-            creep.moveTo(creep.target);
+            creep.moveTo(object);
         }
 	}
 	else
 	{
 		console.log(creep.name + " cleaning target data")
-		clear_target(creep)
+		creep.clear_target()
+		creep.set_state('FindPut')
 		return true
 	}
-	return false
+	
+	if(creep.carry.energy == 0)
+	{
+		creep.clear_target()
+		creep.set_state('Free')
+		return true
+	}
 }
+
+
 
 module.exports = new class extends CreepBase.Behaviour
 {
@@ -300,18 +364,20 @@ module.exports = new class extends CreepBase.Behaviour
 	{
 		var caps = room.get_capabilities()
 		
-		var result = 3
-		/*
+		var result = 0
+		///Servitors should be limited only by mine rate and travel distance
 		if(caps.mine > 0)
-			result += ((caps.mine+1) /2)
-		if(caps.upgrade > 0)
-			result += (caps.upgrade+1)/4
-		*/ 
-		return result
+			result += (caps.mine / 2)
+		return Math.ceil(result)
 	}
 	
 	init(creep)
 	{
-		creep.override_states({MoveGet : process_moveget, MovePut: process_moveput, Job:process_job})
+		creep.override_states({
+			MoveGet : process_move_get, 
+			FindPut: process_find_put, 
+			MovePut: process_move_put,
+			Job:process_job
+		})
 	}
 };

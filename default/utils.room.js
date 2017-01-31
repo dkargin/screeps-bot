@@ -146,12 +146,19 @@ Room.prototype.get_mine_spots = function(force)
 	if(!this.memory.last_mine_calc)
 		this.memory.last_mine_calc = Game.time
 	
-	if(force || (Game.time - this.memory.last_caps_calc > 10))
+	var spots = 0
+	if(force || (Game.time - this.memory.last_mine_calc > 10))
 	{
-		
+		for(var s in Memory._sources)
+		{
+			var source = Game.getObjectById(s)
+			if(!source || source.pos.roomName != this.name)
+				continue
+			spots += source.memory.spots
+		}
 	}
 	
-	return 2
+	return spots
 }
 
 Room.prototype.get_capabilities = function(force)

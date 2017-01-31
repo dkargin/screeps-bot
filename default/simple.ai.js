@@ -6,7 +6,6 @@
  * var mod = require('simple.ai');
  * mod.thing == 'a thing'; // true
  */
- 
 
 /// Simple behaviours from tutorial
 var simpleBehaviours =
@@ -21,11 +20,21 @@ var firstTick = true
  
 function simple_ai()
 {
-	console.log("Processing simple AI tick=" + Game.time)
+	var errors = []
 	var population = {}
 	for(var r in Game.rooms)
 	{
 		population[r] = {}
+	}
+	
+	for(var r in Memory.servitor_give)
+	{
+		var obj = Game.getObjectById(r)
+		if(!obj)
+		{
+			console.log("Cleaning servitor_give with id=" + r)
+			delete Memory.servitor_give[r]
+		}
 	}
 	/// Process simple behaviours
 	/// It also counds role population for each room
@@ -41,16 +50,18 @@ function simple_ai()
 		    var role =  obj.memory.role
 		    var rname = obj.pos.roomName
 		    
-		    //try
+		    try
 		    {
-		    	simpleBehaviours[role].run(obj, firstTick)
-		    }
-		    /*
+			    if(!obj.spawning)
+			    {
+			    	simpleBehaviours[role].run(obj, firstTick)
+			    }
+			}
 		    catch(ex)
 		    {
 		    	console.log("Failed to call role.run " + role + " err=" + ex)
-		    	throw(ex)
-		    }*/
+		    	errors.push(ex)
+		    }
     		
     		population[rname] = population[rname] || {}
 		    
@@ -68,7 +79,7 @@ function simple_ai()
 		var room = Game.rooms[rname]
 		var spawns = room.find(FIND_MY_SPAWNS)
 		
-		console.log("Room " + rname + " population=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier())
+		console.log("AI Tick " + Game.time + " room " + rname + " population=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier())
     		
 		if(spawns.length == 0)
 		{
@@ -113,8 +124,11 @@ function simple_ai()
 	}
 	
 	firstTick = false
+	
+	for(var err in errors)
+		throw(err)
 }
 
 module.exports = {
-    run : simple_ai,
+    run : simple_ai
 };

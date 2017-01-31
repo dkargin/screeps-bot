@@ -1,45 +1,55 @@
 var CreepBase = require('creepbase')
 
+function filter_build_targets(obj)
+{
+	return true
+}
+
 function process_job(creep)
 {
-	if(!creep.target)
-	{
-		if(creep.target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES))
-		{
-			creep.target_action = () => creep.build(creep.target);
-		}
-	}
 	
-	if(creep.target && creep.target_action) 
+	if(!creep.has_target())
 	{
-		if(creep.target_action() == ERR_NOT_IN_RANGE) {
-	        creep.moveTo(creep.target);
-	    }
+		console.log(creep.name + " finding closest build target")
+		if(creep.find_closest_target(FIND_CONSTRUCTION_SITES, filter_build_targets, 'build'))
+		{
+			console.log("Found build target")
+		}
+		else
+		{
+			console.log("No build target is available")
+		}
 	}
 	else
 	{
-		delete creep.target
-		delete creep.target_action
-	}
-	
-	if(creep.carry.energy == 0)
-	{
-		var work = creep.getActiveBodyparts(WORK)
-		creep.room.servitor_give(creep, creep.carry.energy / work)
+		var target = Game.getObjectById(creep.memory.target)
+		if(target)
+		{
+			//console.log(creep.name + " going to build at pos " + target.pos)
+			if(creep.pos.getRangeTo(target) > 1)
+				creep.moveTo(target);
+			else
+			{
+				creep.build(target)
+				
+				if(creep.carry.energy == 0)
+				{
+					var need = creep.carryCapacity - creep.carry.energy
+					var work = creep.getActiveBodyparts(WORK)
+					creep.room.servitor_give(creep, need - creep.carry.energy)
+				}
+		    }
+		}
+		else
+		{
+			creep.clear_target()
+		}		
 	}
 }
 
 module.exports = new class extends CreepBase.Behaviour
 {
-	role()
-	{
-		return 'simple.builder'
-	}
-	
-	body()
-	{
-		return [WORK, WORK, CARRY, MOVE]
-	}
+	role() { return 'simple.builder' }
 	
 	spawn(room)
 	{
@@ -57,14 +67,15 @@ module.exports = new class extends CreepBase.Behaviour
 	
 	get_demands()
 	{
-		return {
-			servitor : 1
-		}
+		return { servitor : 1 }
 	}
 	
 	get_desired_population(room)
 	{
-		return 2
+		var tier = room.get_tech_tier()
+		if(tier > 1)
+			return 2
+		return 0
 	}
 	
 	/// Return creep capabilities

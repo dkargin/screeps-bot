@@ -2,12 +2,14 @@ var CreepBase = require('creepbase')
 
 function process_job(creep)
 {
-	creep.memory.inrange = creep.memory.inrange || false
+	var inrange = creep.pos.inRangeTo(creep.room.controller, 1)
+	//creep.memory.inrange = creep.memory.inrange || false
 	
-	if(!creep.memory.inrange && creep.pos.inRangeTo(creep.room.controller, 2))
-		creep.memory.inrange = true
+	//if(!creep.memory.inrange && )
+	//	creep.memory.inrange = true
 		
-	if(!creep.memory.inrange) {
+	if(!inrange) 
+	{
 		creep.moveTo(creep.room.controller);
 	}
 	else 
@@ -15,10 +17,25 @@ function process_job(creep)
 		creep.upgradeController(creep.room.controller);
     }
 	
-	if(creep.carry.energy == 0)
+	var work = creep.getActiveBodyparts(WORK)
+	
+	if(creep.carry.energy <= work*2)
 	{
-		var work = creep.getActiveBodyparts(WORK)
-		creep.room.servitor_give(creep, creep.carry.energy / work)
+		var need = creep.carryCapacity - creep.carry.energy
+		/*
+		var filter = (flag) =>
+    	{
+    		return flag.memory.type == "servitor"
+    	}
+    	var flags = creep.pos.findInRange(FIND_FLAGS, 1, { filter: filter } );
+	    if(flags[0] && flags[0].pick_task_flag(creep))
+	    {
+	    	
+	    }
+	    else*/
+	    {
+			creep.room.servitor_give(creep, need)
+		}
 	}
 }
 
@@ -58,9 +75,8 @@ module.exports = new class extends CreepBase.Behaviour
 	get_desired_population(room)
 	{
 		var caps = room.get_capabilities()
-		return 1
-		if(caps.mine > 0)
-			return caps.mine / 2
+		//if(caps.mine > 0)
+		//	return caps.mine / 2
 		return 2
 	}
 	/// Return creep capabilities
@@ -71,7 +87,7 @@ module.exports = new class extends CreepBase.Behaviour
 	
     init(creep)
 	{	
-    	console.log("Overriding upgrader callbacks for " + creep.name)
+    	//console.log("Overriding upgrader callbacks for " + creep.name)
 		creep.override_states({Job : process_job})
 	}
 };

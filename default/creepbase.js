@@ -12,9 +12,59 @@ Creep.prototype.set_state = function(new_state)
 }
 
 /// Get current state
-Creep.prototype.get_state = function(creep)
+Creep.prototype.get_state = function()
 {
 	return this.memory.state 
+}
+
+/// Get cached target position
+Creep.prototype.get_target_pos = function()
+{
+	var raw_target = this.memory.target_pos
+	return new RoomPosition(raw_target.x, raw_target.y, raw_target.roomName)
+}
+
+/// Set target
+Creep.prototype.set_target = function(target, action)
+{
+	this.memory.target = target.id
+	
+	var pos = target.pos
+	this.memory.target_pos = {x:pos.x, y:pos.y, roomName:pos.roomName}
+	
+	if(action)
+		this.memory.action = action
+}
+
+Creep.prototype.has_target = function()
+{
+	return ('target' in this.memory)
+}
+
+///FIND_STRUCTURES
+Creep.prototype.find_closest_target = function (type, filter, action)
+{
+	this.clear_target()
+	//console.log(this.name + " finding closest target of type " + type)
+	var target = this.pos.findClosestByPath(type, {filter: filter});
+	if(target)
+	{
+		this.set_target(target, action)
+		return true
+	}
+	return false
+}
+
+Creep.prototype.clear_target = function()
+{
+	if('target' in this.memory)
+		delete this.memory.target
+		
+	if('action' in this.memory)
+		delete this.memory.action
+	
+	if('target_pos' in this.memory)
+		delete this.memory.target_pos
 }
 
 /** Storage for custom state handlers
@@ -100,7 +150,7 @@ Creep.prototype.process_fsm = function()
     	//
     //console.log("Processing " + this.name + " role=" + this.memory.role + " state=" + this.get_state())
     
-    for(var i = 1; i < 5; i++)
+    for(var i = 1; i < 2; i++)
     {
         if(!this.fsm_step())
         	break
@@ -119,6 +169,7 @@ function process_free(creep)
 	console.log(creep.name + " role=" + creep.memory.role + " got default Free jandler")
 	// Automatically switch to 'Job' state
 	creep.set_state('Job')
+	/// TODO: move to spawn[0] position
 }
 
 function process_job_dummy(creep)
@@ -156,7 +207,7 @@ module.exports =
 			
 	    	if(first || !creep.memory.initialized)
 	    	{
-	    		console.log("!!!!!! Initializing first tick for " + creep.name)
+	    		//console.log("!!!!!! Initializing first tick for " + creep.name)
 				//this.init(creep)
 				creep.memory.initialized = true
 	    	}

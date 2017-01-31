@@ -129,7 +129,7 @@ module.exports = new class extends CreepBase.Behaviour
 	
 	init(creep)
 	{
-		console.log("Overriding miner callbacks for " + creep.name)
+		//console.log("Overriding miner callbacks for " + creep.name)
 		creep.override_states({Job : process_mining,  Returning:process_returning})
 	}
 };
