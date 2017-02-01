@@ -7,7 +7,7 @@ function filter_build_targets(obj)
 
 function filter_repair_targets(obj)
 {
-	return obj.hits < obj.hitsMax && obj.hits < 10000
+	return (obj.hits < obj.hitsMax && obj.hits < 200)
 }
 
 
@@ -23,8 +23,6 @@ var Actions =
 		return creep.repair(target)
 	}
 }
-
-
 
 function process_job(creep)
 {

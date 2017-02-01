@@ -60,6 +60,7 @@ function simple_ai()
 		    catch(ex)
 		    {
 		    	console.log("Failed to call role.run " + role + " err=" + ex)
+		    	throw(ex)
 		    	errors.push(ex)
 		    }
     		

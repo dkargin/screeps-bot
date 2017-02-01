@@ -46,6 +46,7 @@ Room.prototype.servitor_take = function(pos, amount)
 		var flag = Game.flags[name]
 		flag.memory.role = "take"
 		flag.memory.type = "servitor"
+		flag.memory.tick = Game.time
 	}
 	if(!flag)
 		return
@@ -81,29 +82,103 @@ Flag.prototype.get_flag_res = function()
 	var result = {}
 }
 
+Flag.prototype.update_task = function(force)
+{
+	var tick = Game.tick
+	/// Update flag status every 10 ticks
+	if(!this.memory.time || (tick - this.memory.time) > 10 || force)
+	{
+		var drop = this.pos.lookFor(LOOK_RESOURCES)
+		if(drop.length > 0)
+			this.memory.drop = drop[0].id
+		
+		var flag = this
+			
+		_.forEach(this.pos.lookFor(LOOK_STRUCTURES), function(obj)
+		{
+			if(obj.structureType == STRUCTURE_CONTAINER)
+			{
+				flag.memory.container = obj.id
+			}
+		})
+	}
+}
+
+Flag.prototype.reserve_task_flag = function(creep, amount)
+{
+	this.memory.reserve = this.memory.reserve || {}
+	this.memory.reserve[creep.id] = 
+	{
+			amount:amount, 
+			id:creep.id, 
+			name:creep.name, 
+			tick : Game.time
+	}
+}
+
 Flag.prototype.pick_task_flag = function(creep)
 {
+	this.update_task(true)
+	
 	var energy = creep.pos.findInRange(FIND_DROPPED_ENERGY,1);
     if (energy.length > 0) 
     {
     	var rez = energy[0]
     	console.log('found ' + rez.energy + ' energy at ', energy[0].pos);
+    	
+    	var transfered = rez.amount 
         creep.pickup(rez);
+        this.memory.amount = rez.amount
+        transfered -= rez.amount
         
-        this.amount = rez.amount
+        if(this.memory.reserve)
+        	delete this.memory.reserve[creep.id]
+        
         /// Picked all
-        if(rez.amount == 0)
+        if(this.total_stored() == 0)
         {
         	this.remove()
-        	creep.target = undefined
+        	return true
         }
+        return false
     }
     else
     {
     	console.log("Arrived, but no rez is found")
     	this.remove()
-    	creep.target = undefined
+    	return true
     }
+}
+
+Flag.prototype.total_stored = function()
+{
+	var result = 0
+	if(this.memory.drop )
+	{
+		var obj = Game.getObjectById(this.memory.drop)
+		if(obj)
+			result += obj.amount
+	}
+	
+	if(this.memory.container)
+	{
+		var obj = Game.getObjectById(this.memory.container)
+		if(obj)
+			result += obj.store.energy
+	}	
+	return result
+}
+
+Flag.prototype.total_reserved = function()
+{
+	var result = 0
+	this.memory.reserve = this.memory.reserve || {}
+	
+	_.forEach(this.memory.reserve, function(id, info)
+	{
+		result += amount
+	})
+	return result
 }
 
 function process_job(creep)
@@ -149,8 +224,6 @@ function process_move_get(creep)
     	creep.say("Return")
     }
 }
-
-
 
 /**
  * Wrapper for servitor transfers
@@ -374,6 +447,16 @@ module.exports = new class extends CreepBase.Behaviour
 		 * 		check resourses under the flag
 		 * 		write last check time to flag memory
 		 */
+		
+		var tick = Game.time
+		for(var f in Game.flags)
+		{
+			var flag = Game.flags[f]
+			if(flag.memory.type != 'servitor')
+				continue
+			
+			flag.update_task()
+		}
 	}
 	
 	init(creep)
