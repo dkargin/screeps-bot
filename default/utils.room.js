@@ -7,6 +7,26 @@
  * mod.thing == 'a thing'; // true
  */
  
+class RoomData
+{
+	constructor(name)
+	{
+		this.name = name
+		this.costmap = new PathFinder.CostMatrix()
+	}
+	
+	analyse_terrain()
+	{
+		for(var y = 0; y < 50; y++)
+		{
+			for(var x = 0; x < 50; x++)
+			{
+				
+			}
+		}
+	}
+}
+
 RoomPosition.prototype.list_free_spots = function()
 {
     var spots = []

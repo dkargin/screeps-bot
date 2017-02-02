@@ -83,6 +83,8 @@ module.exports = new class extends CreepBase.Behaviour
 	get_desired_population(room)
 	{
 		var caps = room.get_capabilities()
+		if(caps.mine == 0)
+			return 0
 		//if(caps.mine > 0)
 		//	return caps.mine / 2
 		return 2

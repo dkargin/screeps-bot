@@ -109,18 +109,52 @@ testCorp.event3 = function(event, result)
 	console.log("Event3 result=" + Actions.resultToString(result))	
 }
 
+global.loadVisual = function(){
+  return console.log('<script>' + 
+    'if(!window.visualLoaded){' + 
+    '  $.getScript("https://screepers.github.io/screeps-visual/src/visual.screeps.user.js");' + 
+    '  window.visualLoaded = true;' + 
+    '}</script>')
+}
+
 var SimpleAI = require('simple.ai')
+
+function visualizePaths(){
+  let Visual = require('visual')
+  let colors = []      
+  let COLOR_BLACK = colors.push('#000000') - 1
+  let COLOR_PATH = colors.push('rgba(255,255,255,0.5)') - 1
+  _.each(Game.rooms,(room,name)=>{
+    let visual = new Visual(name)
+    visual.defineColors(colors)
+    visual.setLineWidth = 0.5
+    _.each(Game.creeps,creep=>{
+      if(creep.room != room) return
+      let mem = creep.memory
+      if(mem._move){
+        let path = Room.deserializePath(mem._move.path)
+        if(path.length){
+          visual.drawLine(path.map(p=>([p.x,p.y])),COLOR_PATH,{ lineWidth: 0.1 })
+        }
+      }
+    })
+    visual.commit()
+  })
+}
 
 module.exports.loop = function() { profiler.wrap(function () 
 {   
 	if(firstTick)
     {
+		Game.profiler.background()
+		loadVisual()
         firstTick = false;
         
         console.log("<b> ====================== Script has restarted =================</b>")
 		
         for(var i in Game.spawns)
             Game.spawns[i].room.analyse_mines(Game.spawns[i])
+           
     }
 	
 	for(var r in Game.rooms)
@@ -177,6 +211,11 @@ module.exports.loop = function() { profiler.wrap(function ()
     }
 
     memoryUtils.clean_memory()
+    
+    if(Game.cpu.tickLimit < 10)
+    	Game.profiler.output(10);
+    
+    //visualizePaths()
     //build(spawn, STRUCTURE_EXTENSION);
 });
 }

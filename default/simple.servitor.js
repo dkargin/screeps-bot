@@ -143,6 +143,8 @@ Flag.prototype.pick_task_flag = function(creep, pickAmount)
 	{
 		pickAmount = creep.carryCapacity - creep.carry.energy
 	}
+	
+	console.log("Will pick " + pickAmount)
 
 	var transfered = 0
 	var obj
@@ -160,9 +162,15 @@ Flag.prototype.pick_task_flag = function(creep, pickAmount)
     
     if(pickAmount > 0 && this.memory.container && (obj = Game.getObjectById(this.memory.container)))
 	{
-    	//console.log('found ' + obj.store.energy + ' storage at ', this.pos);
     	var available = obj.store.energy
-    	obj.transfer(creep, RESOURCE_ENERGY, pickAmount)
+    	var toPick = pickAmount
+    	if(available < toPick)
+    		toPick = available
+    		
+    	console.log('found ' + obj.store.energy + ' storage at ', this.pos);
+    	obj.transfer(creep, RESOURCE_ENERGY, toPick)
+    	pickAmount -= toPick
+    	transfered += toPick
 	}
     
     /// Remove creep reserve
@@ -255,7 +263,8 @@ Creep.prototype.servitor_transfer_creep = function(obj)
 function filter_structures(obj)
 {
 	var t = obj.structureType;
-	return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN || t == STRUCTURE_TOWER) && 
+	//return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN || t == STRUCTURE_TOWER) && 
+	return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN) &&
 		obj.energy < obj.energyCapacity;
 }
 
@@ -391,12 +400,14 @@ function process_move_get(creep)
     	}
     	console.log(creep.name + " moveget moving to GIVE flag " + obj.name );
     	/// Check if target is dropped rez
-    	if(creep.pos.getRangeTo(obj) == 1)
+    	if(creep.pos.getRangeTo(obj) <= 1)
     	{
+    		console.log(creep.name + " picking task flag" + obj.name );
     		obj.pick_task_flag(creep)
     	}
     	else
     	{
+    		console.log(creep.name + " moving closer" + obj.name );
     		creep.moveTo(obj)
     	}
     }

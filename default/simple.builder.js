@@ -106,6 +106,9 @@ module.exports = new class extends CreepBase.Behaviour
 	get_desired_population(room)
 	{
 		var tier = room.get_tech_tier()
+		var caps = room.get_capabilities()
+		if(caps.mine == 0)
+			return 0
 		if(tier > 1)
 			return 2
 		return 0

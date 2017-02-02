@@ -1,21 +1,21 @@
-# upgrader #
 
-Upgrades controller structure. Does not like to move and asks servitors to bring him resources
-
-needs: servitor, miner
-provides: controller_upgrader
-
-# servitor #
-
-Typical life:
-
-1. pick nearest'want drop' task
-2. move to specified point and pick energy
-3. find nearest 'feedme' task 
-4. if not full:
-5.		find nearest 'wantdrop' task
-6.		if 'wantdrop' is closer: goto 2
-7. move to specified 'feedme'
-
-
+# TODO #
+1. upgrader corp
+	- find best storage location
+	- mark rail spots from logistics center
+	- calculate upgrader spots
+1. population management. Tier upgrades and creep renewal
+	- 
+1. delivery to specific room container
+	- move spawn/extension/tower deliveries through delivery queries
+1. cancel delivery
+	- need ability to cancel a delivery
+	- servitor should check whether delivery target is still available
+1. accurate delivery. Creeps should deliver exact requested amount 
+1. terrain awareness. We do need to generate costmap for each room
+	- add walls and swamp flags
+	- add mine spot flag. Creeps should evade this spots. Only miners are allowed
+	- add upgrade-storage spots. Only upgraders are allowed to stand at this spots
+	- railway spot? 
+1. Calculate travel time for a creep and a path
 

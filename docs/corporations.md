@@ -9,15 +9,61 @@ Remote mining starts at t2
 
 ## UpgradeCorp ##
 
+Goal: deals with upgrading process of room controller
+Name: Upgrade@roomName
+Property: 
+ - contaier near to controller
+ - upgrade spots around storage
+ - several 'upgrader' creeps
+ - several 'upgrader' spots, that are occupied by upgrader creeps
+ - road from logistics center (storage or container
+ - mover creep, if it can be occupied 100%
+ - logistics source. This source can be moved to another place. Corporation should adapt to this change
+
 Starts at t2 with build access to a storage.
+
+UpgradeCorp request additional supplies every N ticks (i.e 10 ticks), with amount, equal to corporation energy consumption for this N ticks
+Some sort of room distribution manager decides which portion of room total income can be sent to UpgradeCorp, and confirms 'giveme' request with altered energy amount
+
+Actions for solver:
+ - add new upgrader. Increases upgrade rate. Increases expenses
+ - build a storage. Reduce expenses. Howmuch? (less movers)
+ - build a road. Increase road expenses, reduce mover expenses (faster transport rate) 
+
+ 
 
 Calculates proper spots for upgraders and keeps upgraders at this spots. Controls energy delivery and distribution between working upgraders. Controls upgrader energy consumption up to room estimated production 
 
+Maths
+Mine provides max=10energy per spot
+Foreign mine provides max = 5 energy per spot
+T1(300) upgrades 2 per tick , workParts = 2
+T2(550) upgrades 4 per tick , workParts = 4 -> 5 upgraders per room, 
+T3(800) upgrades 5 per tick, workParts = 5 -> 4 upgraders, 2 per foreign room
+T4(1300) upgrades 10 per tick, workParts = 10 -> 2 upgraders per room, 1 upgrader per foreign room
+
+Need to allocate up to 8 upgrade spots around container near upgrading spot. One free spot is reserved for delivery creeps
+
+upgradersRequired = room.getIncomeToUpgraders() / workParts
+  
+
+On start:
+1. Calculate upgrading spots
+
+
 ## SpawnCorp ##
 
+Name = "Spawn@roomName"
+
+Property: 
+ - all the spawns in a room
+ - container near every spawn. It works as 'suicide spot'
+ - single mover of a largest size
+ - all the extensions
+ - road around all the extensions
+ 
 Starts at t2 with the first extension group. Rents a worker at t3 to completely control extention filling
 
-## Sanitarium ##
 
 All creeps with 'Refresh' job gather here and visit spawn in a strict order to prevent crowding. Maybe it is better to be of SpawnCorp
 
