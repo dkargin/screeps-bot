@@ -22,6 +22,8 @@ function simple_ai()
 {
 	var errors = []
 	var population = {}
+	
+	simpleBehaviours["simple.servitor"].check_tasks()
 	for(var r in Game.rooms)
 	{
 		population[r] = {}
@@ -50,19 +52,19 @@ function simple_ai()
 		    var role =  obj.memory.role
 		    var rname = obj.pos.roomName
 		    
-		    try
+		    //try
 		    {
 			    if(!obj.spawning)
 			    {
 			    	simpleBehaviours[role].run(obj, firstTick)
 			    }
-			}
+			}/*
 		    catch(ex)
 		    {
 		    	console.log("Failed to call role.run " + role + " err=" + ex)
 		    	throw(ex)
 		    	errors.push(ex)
-		    }
+		    }*/
     		
     		population[rname] = population[rname] || {}
 		    

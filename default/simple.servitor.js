@@ -5,19 +5,6 @@
 
 var CreepBase = require('creepbase') 
 
-Room.prototype.get_servitor_info = function()
-{
-	this.memory.servitors = this.memory.servitors || {}
-	
-	var info = this.memory.servitors
-	info.last_take_flag = info.last_take_flag || 1
-	info.last_give_flag = info.last_give_flag || 1
-	info.free_take_flag = info.free_take_flag || []
-	info.free_give_flag = info.free_give_flag || []
-	
-	return info
-}
-
 /// Someone wants to take away resources
 /// @pos  
 Room.prototype.servitor_take = function(pos, amount)
@@ -28,29 +15,36 @@ Room.prototype.servitor_take = function(pos, amount)
 	
 	if(flags.length > 0)
 	{
-		console.log("Found #" + flags.length + " flags at pos " + pos)
-		flag = flags[0]
-	}
-	else
-	{
-		var info = this.get_servitor_info()
-		var name = name = info.free_take_flag.pop()
-		if(!name)
-			name = "Take#" + this.name + (info.last_take_flag++)
-	
-		if(this.createFlag(pos, name) == ERR_NAME_EXISTS)
+		for(var f in flags)
 		{
-			console.log("Failed to create take flag " + name + " at: " + pos)
+			if(flags[f].role == "take")
+			{
+				flag = flags[f]
+				console.log("Picked existing TAKE flag " + flag.name)
+			}
+		}
+	}
+	
+	if(!flag)
+	{
+		name = "T#" + this.name + "X" + (pos.x) + "Y" + (pos.y)
+		if(this.createFlag(pos, name, COLOR_BROWN) == ERR_NAME_EXISTS)
+		{
+			//console.log("Failed to create take flag " + name + " at: " + pos)
 		}
 		
-		var flag = Game.flags[name]
-		flag.memory.role = "take"
-		flag.memory.type = "servitor"
-		flag.memory.tick = Game.time
+		flag = Game.flags[name]
+		
 	}
-	if(!flag)
-		return
 	
+	if(!flag)
+	{
+		console.log("No take flag at pos " + pos)
+		return
+	}
+	
+	flag.memory.role = "take"
+	flag.memory.type = "servitor"
 	if(!flag.memory.amount)
 		flag.memory.amount = amount
 	else
@@ -64,7 +58,6 @@ Room.prototype.servitor_take = function(pos, amount)
 /// @time - time of the delivery
 Room.prototype.servitor_give = function(obj, amount, time)
 {
-	
 	/// Ensure table exists
 	Memory.servitor_give = Memory.servitor_give || {}
 	if(!(Memory.servitor_give[obj.id]))
@@ -72,7 +65,27 @@ Room.prototype.servitor_give = function(obj, amount, time)
 		console.log("===> Servitor Give " + obj.name + " amount="+amount)
 	}
 	
-	Memory.servitor_give[obj.id] = Memory.servitor_give[obj.id] || {amount : amount, time: time, reserved : 0}
+	Memory.servitor_give[obj.id] = Memory.servitor_give[obj.id] || {amount : amount, time: time, reserve : {}}
+}
+
+/**
+ * Reserve some part of delivery
+ * Reservation prevents multiple servitors to 'overdeliver' resources to the target
+ * @param obj - delivery target
+ * @param amount - amount that will be reserved
+ * @param time - estimated tick of delivery
+ */
+Room.prototype.servitor_reserve_give = function(obj, amount, time)
+{
+	/// TODO: implement
+	var info = Memory.servitor_give[obj.id]
+	if(info)
+	{
+		if(amount > info.amount)
+			amount = info.amount
+		info.reserve = info.reserve || {}
+		info.reserve[obj.id] = {amount : amount, time: time}
+	}
 }
 
 /// Get task resources that belong to task flag
@@ -80,10 +93,12 @@ Flag.prototype.get_flag_res = function()
 {
 	var room = Game.rooms[this.room]
 	var result = {}
+	throw("NotImplemented")
 }
 
 Flag.prototype.update_task = function(force)
 {
+	//console.log("Updating task flag=" + this.name)
 	var tick = Game.tick
 	/// Update flag status every 10 ticks
 	if(!this.memory.time || (tick - this.memory.time) > 10 || force)
@@ -104,50 +119,63 @@ Flag.prototype.update_task = function(force)
 	}
 }
 
-Flag.prototype.reserve_task_flag = function(creep, amount)
+Flag.prototype.reserve_task_flag = function(creep, amount = 0)
 {
+	if(!amount)
+		amount = creep.carryCapacity - creep.carry.energy
+		
+	console.log(creep.name + " reserves TAKE flag at " + this.pos + " amount="+ amount)
+	
 	this.memory.reserve = this.memory.reserve || {}
 	this.memory.reserve[creep.id] = 
 	{
-			amount:amount, 
-			id:creep.id, 
+			amount:amount,
 			name:creep.name, 
 			tick : Game.time
 	}
 }
 
-Flag.prototype.pick_task_flag = function(creep)
+Flag.prototype.pick_task_flag = function(creep, pickAmount)
 {
 	this.update_task(true)
 	
-	var energy = creep.pos.findInRange(FIND_DROPPED_ENERGY,1);
-    if (energy.length > 0) 
+	if(!pickAmount)
+	{
+		pickAmount = creep.carryCapacity - creep.carry.energy
+	}
+
+	var transfered = 0
+	var obj
+	
+    if (this.memory.drop && (obj = Game.getObjectById(this.memory.drop))) 
     {
-    	var rez = energy[0]
-    	console.log('found ' + rez.energy + ' energy at ', energy[0].pos);
+    	//console.log('found ' + obj.energy + ' energy at ', this.pos);
     	
-    	var transfered = rez.amount 
-        creep.pickup(rez);
-        this.memory.amount = rez.amount
-        transfered -= rez.amount
-        
-        if(this.memory.reserve)
-        	delete this.memory.reserve[creep.id]
-        
-        /// Picked all
-        if(this.total_stored() == 0)
-        {
-        	this.remove()
-        	return true
-        }
-        return false
+    	var before = obj.amount 
+        creep.pickup(obj, pickAmount);
+        this.memory.amount = obj.amount
+        transfered = (obj.amount - before)
+        pickAmount -= transfered
     }
-    else
+    
+    if(pickAmount > 0 && this.memory.container && (obj = Game.getObjectById(this.memory.container)))
+	{
+    	//console.log('found ' + obj.store.energy + ' storage at ', this.pos);
+    	var available = obj.store.energy
+    	obj.transfer(creep, RESOURCE_ENERGY, pickAmount)
+	}
+    
+    /// Remove creep reserve
+    if(this.memory.reserve && creep.id in this.memory.reserve)
+    	delete this.memory.reserve[creep.id]
+    
+    /// Picked all
+    if(this.total_stored() == 0)
     {
-    	console.log("Arrived, but no rez is found")
+    	console.log("Pick flag is completely empty, transfered = " + transfered)
     	this.remove()
-    	return true
     }
+    return transfered
 }
 
 Flag.prototype.total_stored = function()
@@ -169,67 +197,26 @@ Flag.prototype.total_stored = function()
 	return result
 }
 
-Flag.prototype.total_reserved = function()
+Flag.prototype.total_reserved = function(creep)
 {
 	var result = 0
 	this.memory.reserve = this.memory.reserve || {}
 	
-	_.forEach(this.memory.reserve, function(id, info)
+	_.forEach(this.memory.reserve, function(info, id)
 	{
-		result += amount
+		if(creep && id == creep.id)
+			return
+		console.log("Adding reservation " + id + "=" + JSON.stringify(info))
+		result += info.amount
 	})
 	return result
-}
-
-function process_job(creep)
-{
-	creep.set_state('MoveGet')
-}
-/** @param {Creep} creep **/
-function process_move_get(creep)
-{
-	//console.log(creep.name + " moveget");
-	
-	if(creep.carry.energy == creep.carryCapacity)
-	{
-		creep.set_state('FindPut')
-    	creep.say("Return")
-	}
-	/// Go mining
-    if(!creep.target)
-    {
-    	var filter = (flag) =>
-    	{
-    		return flag.memory.type == "servitor"
-    	}
-    	
-    	creep.target = creep.pos.findClosestByPath(FIND_FLAGS, { filter: filter } );
-    }
-    
-    if(creep.target)
-    {
-    	/// Check if target is dropped rez
-    	if(creep.pos.getRangeTo(creep.target) == 1)
-    	{
-    		creep.target.pick_task_flag(creep)
-    	}
-    	else
-    	{
-    		creep.moveTo(creep.target)
-    	}
-    }
-    else if(creep.carry.energy > 0)
-    {
-    	creep.set_state('FindPut')
-    	creep.say("Return")
-    }
 }
 
 /**
  * Wrapper for servitor transfers
  * Checks transfer amount and decreases 'want' counter 
 **/
-Creep.prototype.servitor_transfe_structure = function(obj)
+Creep.prototype.servitor_transfer_structure = function(obj)
 {
 	//var before = obj.carry.energy
 	var result = this.transfer(obj, RESOURCE_ENERGY)
@@ -251,9 +238,12 @@ Creep.prototype.servitor_transfer_creep = function(obj)
 	if(needs && result == OK)
 	{
 		needs.amount -= transfered
-		needs.reserved -= transfered
-		if(needs.reserved < 0)
-			needs.reserved = 0
+		
+		var reservation = needs.reserve[this.id]
+		
+		if(reservation)
+			delete needs.reserve[this.id]
+		
 		if(needs.amount <= 0)
 		{
 			console.log(creep.name + " removing servitor_give for obj=" + obj.id)
@@ -274,15 +264,22 @@ function filter_structures(obj)
 /// Filter creeps (or any sort of objects) that registered in 'take' table
 function filter_creep_take(obj)
 {
-	var result = obj.id in Memory.servitor_give
+	var result = (obj.id in Memory.servitor_give)
 	
 	if(obj.id in Memory.servitor_give)
 	{
 		var give = Memory.servitor_give[obj.id]
-		console.log("Creep + " + obj.name + " has GIVE target: " + JSON.stringify(give))
-		return give.amount > give.reserved
+		
+		var reserved = 0
+		for(var i in give.reserve)
+		{
+			var reserve = give.reserve[i]
+			reserved += reserve.amount
+		}
+		
+		console.log("GIVE target " + obj.name + " reserved=" + reserved + "" + JSON.stringify(give.reserve))
+		return give.amount > reserved
 	}
-	return false
 	
 	return result
 }
@@ -295,12 +292,10 @@ var TargetActions =
 	pick_ground : function(creep, target) {},
 	give_structure : function(creep, target)
 	{
-		//return creep.transfer(target, RESOURCE_ENERGY)
-		return creep.servitor_transfe_structure(target)
+		return creep.servitor_transfer_structure(target)
 	},
 	give_creep : function(creep, target)
 	{
-		//return creep.transfer(target, RESOURCE_ENERGY)
 		return creep.servitor_transfer_creep(target)
 	},
 }
@@ -322,11 +317,20 @@ function process_find_put(creep)
 	if(!creep.has_target())
 	{
 		//console.log(creep.name + " has no GIVE target")
-		if( creep.find_closest_target(FIND_STRUCTURES, filter_structures, 'give_structure') ||
-			creep.find_closest_target(FIND_MY_CREEPS, filter_creep_take, 'give_creep'))
+		if( creep.find_closest_target(FIND_STRUCTURES, filter_structures, 'give_structure'))
 		{
 			var obj = Game.getObjectById(creep.memory.target)
-			console.log(creep.name + " transfering res to object at " + obj.pos)
+			console.log(creep.name + " transfering res to structure at " + obj.pos)
+		}
+		else if(creep.find_closest_target(FIND_MY_CREEPS, filter_creep_take, 'give_creep'))
+		{
+			var obj = Game.getObjectById(creep.memory.target)
+			var rez = creep.carry.energy
+			obj.room.servitor_reserve_give(obj, rez, Game.time)
+			var name = "unknown"
+			if(obj.name)
+				name = obj.name
+			console.log(creep.name + " transfering res to object " + name + " at " + obj.pos)
 		}
 		else
 		{
@@ -336,66 +340,125 @@ function process_find_put(creep)
 	
 	if(creep.has_target()) 
 	{
-		var action = TargetActions[creep.memory.action]
-		if(!action)
-		{
-			console.log(creep.name + " has invalid action. Clearing target")
-			creep.clear_target()
-			return true
-		}
-		var object = Game.getObjectById(creep.memory.target)
-		var result = action(creep, object)
-		switch(result)
-		{
-		case OK:
-			break;
-		case ERR_NOT_IN_RANGE:
-			creep.moveTo(object); 
-			break;
-		case ERR_FULL:
-			console.log(creep.name + " destination is full")
-			creep.clear_target()
-			return true
-		case ERR_INVALID_TARGET:
-			creep.clear_target()
-			return true
-		}
-	}
-	else
-	{
-		console.log(creep.name + " cleaning target data")
-		creep.clear_target()
+		creep.set_state('MovePut')
+		creep.say("Goput")
 		return true
 	}
 	return false
 }
 
+function process_job(creep)
+{
+	creep.set_state('MoveGet')
+}
+/** @param {Creep} creep **/
+function process_move_get(creep)
+{
+	if(creep.carry.energy == creep.carryCapacity)
+	{
+		creep.set_state('FindPut')
+    	creep.say("Return")
+	}
+	/// Go mining
+    if(!creep.memory.target)
+    {
+    	//console.log(creep.name + " moveget finding GIVE flag");
+    	var filter = function (flag)
+    	{
+    		if(flag.memory.type != "servitor" || flag.memory.role != 'take')
+    			return false
+    		console.log("consider TAKE " + flag.name + " reserved=" + flag.total_reserved() + " stored=" + flag.total_stored() + " " + JSON.stringify(flag.memory))
+    		return flag.total_reserved(creep) < flag.total_stored()
+    	}
+    	
+    	var target = creep.pos.findClosestByPath(FIND_FLAGS, { filter: filter } );
+    	if(target)
+    	{
+    		creep.memory.target = target.name
+    		target.reserve_task_flag(creep)
+    	}
+    	else
+    	{
+    		console.log("No GIVE flag is found")
+    	}
+    }
+    
+    if(creep.memory.target)
+    {
+    	var obj = Game.flags[creep.memory.target]
+    	if(!obj)
+    	{
+    		creep.clear_target()
+    		return false
+    	}
+    	console.log(creep.name + " moveget moving to GIVE flag " + obj.name );
+    	/// Check if target is dropped rez
+    	if(creep.pos.getRangeTo(obj) == 1)
+    	{
+    		obj.pick_task_flag(creep)
+    	}
+    	else
+    	{
+    		creep.moveTo(obj)
+    	}
+    }
+    else if(creep.carry.energy > 0)
+    {
+    	creep.set_state('FindPut')
+    	creep.say("Return")
+    }
+}
+
 function process_move_put(creep)
 {
-	if(creep.memory.target && creep.memory.action) 
+	var clear_target = false
+	if(creep.has_target()) 
 	{
 		var action = TargetActions[creep.memory.action]
-		var object = Game.getObjectById(creep.memory.target)
-		
-		if(action(creep, object) == ERR_NOT_IN_RANGE) 
+		if(!action)
 		{
-            creep.moveTo(object);
-        }
+			console.log(creep.name + " has invalid action. Clearing target")
+			clear_target = true
+		}
+		else
+		{
+			var object = Game.getObjectById(creep.memory.target)
+			var result = action(creep, object)
+			//console.log(creep.name + " applying action " + creep.memory.action)
+			switch(result)
+			{
+			case OK:
+				break;
+			case ERR_NOT_IN_RANGE:
+				creep.moveTo(object); 
+				break;
+			case ERR_FULL:
+				console.log(creep.name + " destination is full")
+				clear_target = true
+				break
+			case ERR_INVALID_TARGET:
+				console.log(creep.name + " PUT target is invalid")
+				clear_target = true
+				break
+			}
+		}
 	}
 	else
 	{
-		console.log(creep.name + " cleaning target data")
-		creep.clear_target()
-		creep.set_state('FindPut')
-		return true
+		clear_target = true
 	}
 	
-	if(creep.carry.energy == 0)
+	if(clear_target || creep.carry.energy == 0) 
 	{
+		//console.log(creep.name + " cleaning target data")
 		creep.clear_target()
-		creep.set_state('Free')
+		if(creep.carry.energy > 0)
+			creep.set_state('FindPut')
+		else
+			creep.set_state('MoveGet')
 		return true
 	}
+	return false
 }
 
 
@@ -410,15 +473,18 @@ module.exports = new class extends CreepBase.Behaviour
 	spawn(room) 
 	{
 		var tier = room.get_tech_tier()
-		if(tier > 1)
-			return {name : "SV", 
-				body : [CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE], mem : {
-					role:this.role(), tier: 2 }
+		if(tier >= 3)
+			return {
+				name: 'SV', body : room.unpack_recipe({carry:8, move:8}), mem : {role:this.role(), tier : 3 }
+			} 
+		else if(tier == 2)
+			return {
+				name: 'SV', body : room.unpack_recipe({carry:5, move:5}), mem : { role:this.role(), tier: 2 }
+			}	
+		else
+			return {
+				name: 'SV', body : room.unpack_recipe({carry:3, move:3}), mem : {role:this.role(), tier : 1 }
 			}
-		return {name : "SV",
-			body : [CARRY, CARRY, CARRY, MOVE, MOVE, MOVE], mem : {
-				role:this.role(), tier : 1 }
-		}
 	}
 	
 	/// Return creep capabilities
@@ -431,7 +497,7 @@ module.exports = new class extends CreepBase.Behaviour
 	{
 		var caps = room.get_capabilities()
 		
-		var result = 0
+		var result = 2
 		///Servitors should be limited only by mine rate and travel distance
 		if(caps.mine > 0)
 			result += (caps.mine / 6)
@@ -441,21 +507,26 @@ module.exports = new class extends CreepBase.Behaviour
 	/// Check servitor tasks
 	check_tasks()
 	{
-		/// 
-		/**
-		 * TODO: iterate through all flags
-		 * 		check resourses under the flag
-		 * 		write last check time to flag memory
-		 */
-		
 		var tick = Game.time
+		/// Check flags
 		for(var f in Game.flags)
 		{
 			var flag = Game.flags[f]
 			if(flag.memory.type != 'servitor')
 				continue
 			
-			flag.update_task()
+			flag.update_task(true)
+		}
+		/// Check creeps
+		for(var c in Memory.servitor_give)
+		{
+			var give_task = Memory.servitor_give[c]
+			for(var rid in give_task.reserve)
+			{
+				var reserve = give_task.reserve[rid]
+				if(reserve.time < tick)
+					delete give_task.reserve[rid]
+			}
 		}
 	}
 	

@@ -6,31 +6,7 @@
  * var mod = require('memory');
  * mod.thing == 'a thing'; // true
  */
-
-/** 
- * Global memory cache
- *  We use it to store local game object data
- */ 
-var MemCache = {}
-
-/** 
- * Return cached object
- * Cache game objects to reduce CPU load for getObjectById requests
- */
-Game.getCachedObject = function(id)
-{
-	if(id in MemCache)
-		return MemCache[id]
-	
-	var obj = Game.getObjectById()
-	
-	if(obj)
-	{
-		MemCache[id] = {update_tick:Game.tick, object:obj}
-	}
-	return obj
-}
-
+ 
 /// @param objects - array of object ids
 /// @returns array of objects that are still alive
 Game.check_alive = function(objects)
