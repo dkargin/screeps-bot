@@ -239,9 +239,7 @@ Creep.prototype.servitor_transfer_creep = function(obj)
 	{
 		needs.amount -= transfered
 		
-		var reservation = needs.reserve[this.id]
-		
-		if(reservation)
+		if(needs.reserve && needs.reserve[this.id])
 			delete needs.reserve[this.id]
 		
 		if(needs.amount <= 0)

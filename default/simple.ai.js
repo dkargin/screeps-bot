@@ -82,7 +82,7 @@ function simple_ai()
 		var room = Game.rooms[rname]
 		var spawns = room.find(FIND_MY_SPAWNS)
 		
-		console.log("AI Tick " + Game.time + " room " + rname + " population=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier())
+		console.log("AI Tick " + Game.time + " room " + rname + " pop=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier() + " cap="+room.energyCapacityAvailable)
     		
 		if(spawns.length == 0)
 		{
