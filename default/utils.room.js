@@ -6,27 +6,116 @@
  * var mod = require('utils.room');
  * mod.thing == 'a thing'; // true
  */
- 
+
+/// Terrain type
+const TERRAIN_WALL = 1
+const TERRAIN_SWAMP = 2
+/// Spot type
+const SPOT_FREE = 0 				/// No spot. Can be occupied
+const SPOT_MINE = 1 				/// Spot near the mine
+const SPOT_MINE_CHEST = 2			/// Container near the mine
+const SPOT_UPGRADE = 3 				/// Spot for upgrader creep
+const SPOT_UPGRADE_CHEST = 4 		/// Container near the upgraders
+const SPOT_RENEW = 5				/// Renew spot near the spawn
+const SPOT_SPAWN = 6 				/// New creeps spawn here
+const SPOT_GATE = 7
+const SPOT_EXTENSION = 8
+
+/// Ring of 8 points around center at [0, 0]
+const contour_1 = [[1, 0], 
+	[1,1], [0, 1], [-1, 1], 
+	[-1, 0], 
+	[-1, -1], [0, -1], [1, -1]]
+
+/// Ring of 16 points at distance=2 around center [0, 0]
+const contour_2 = [
+	[ 2,-2], [ 2,-1], [ 2, 0], [ 2, 1],
+	[ 2, 2], [ 1, 2], [ 0, 2], [-1, 2],
+	[-2, 2], [-2, 1], [-2, 0], [-2,-1],
+	[-2,-2], [-1,-2], [ 0,-2], [ 1,-2]
+]
+
 class RoomData
 {
 	constructor(name)
 	{
 		this.name = name
-		this.costmap = new PathFinder.CostMatrix()
+		this.tiles = new Array[50*50]
+		this.room = Game.rooms[name]
+		this.mines = {}
 	}
 	
+	get_tile(x,y)
+	{
+		return this.tiles[x + y*50]
+	}
+	
+	/// Read terrain and generate proper spots
 	analyse_terrain()
 	{
+		if(room && room.memory.has_terrain)
+			return
+		/// 1. Gather the terrain
 		for(var y = 0; y < 50; y++)
 		{
 			for(var x = 0; x < 50; x++)
 			{
+	            var info = {terrain:0, spot:SPOT_FREE}
+	            var tile = Game.map.getTerrainAt(spot_pos)
+	            if(tile == 'wall')
+	            	info.terrain = TERRAIN_WALL
+	            else if(tile == 'swamp')
+	            	info.terrain = TERRAIN_SWAMP
 				
+				this.tiles[x+y*50] = tile
+			}
+		}
+		
+		/// 2. Draw mines and its spots
+		if(this.room)
+		{
+			var data = this
+			var filter = function(mine)
+			{
+				data.mines[mine.id] = {type:'E', x:mine.pos.x, y:mine.pos.y}
+				data.mark_area_1(mine.pos.x, mine.pos.y, (tile) => tile.terrain != TERRAIN_WALL ? SPOT_MINE : SPOT_FREE)
+				return true
+			}
+			this.room.find(FIND_SOURCES, {filter:filter})
+		}
+		
+
+		/// 3. Calculate best position for upgrader chest
+		///		iterate through all contour points at distance = 2
+		/// 4. Draw upgrader spots
+	}
+	
+	/**
+	 * Marks area around specified point using callback
+	 * @callback should return spot type
+	 */ 
+	mark_area_1(x0,y0, callback)
+	{
+		for(var y = y0-1; y <= y0+1; y++)
+		{
+			for(var x = x0-1; x <= x0+1; x++)
+			{
+				if(x == 0 || x == 49 || y == 0 || y == 49)
+					continue
+				if(x == x0 && y == y0)
+					continue
+				
+				var tile = this.get_tile(x, y)
+				var spot = callback(tile, x, y)
+				tile.spot = spot
 			}
 		}
 	}
 }
 
+/**
+ * Lists free spots around this room position
+ */
 RoomPosition.prototype.list_free_spots = function()
 {
     var spots = []
@@ -48,6 +137,9 @@ RoomPosition.prototype.list_free_spots = function()
     return spots
 }
 
+/**
+ * Remove all the flags from a room
+ */
 Room.prototype.remove_flags = function()
 {
     for(var i in Game.flags)
@@ -77,7 +169,9 @@ Game.getObjectPos=function(obj)
 
     throw("Cannot get position from unknown object"+obj)
 }
-/** 
+
+/**
+ * Plans road from one position to another 
  * @param {RoomPosition) from - starting position for a road
  * @param {RoomPosition) to - finish position for a road
  * @param {int) skip - number of tiles to be skipped before the finish
@@ -104,27 +198,28 @@ Room.prototype.make_road = function(from, to, skip)
 
 /// Get room current tech level
 /// Used by corporations to get available actions
-
 Room.prototype.get_tech_tier = function()
 {
 	var tick = Game.tick
-	var tiers = [ 300, 300, 300 + 50*5, 300 + 50*10, 300+50*20 ]
+	var tiers = [ 0, 0, 250, 500, 1000 ]
 	var capacity = this.energyCapacityAvailable
 	var capabilities = this.get_capabilities()
 	
 	/// There is no creep to feed the spawn, so 
 	if(!capabilities.feed_spawn)
 		capacity = this.energyAvailable
+	if(!capabilities.miner)
+		capacity = this.energyAvailable
 	
 	/// TODO: check whether the room has 'mover' capability
 	/// effectively making its energy capped at 300 corresponding to t1
-	var tier = 0
+	var tier = 1
 	
-	for(var i in tiers)
+	for(var i = 0; i < tiers.length; i++)
 	{
-		if(tiers[i] <= capacity)
+		if((tiers[i] + 300) <= capacity)
 		{
-			tier = i
+			tier = i+1
 		}
 	}
 	//console.log("Room has tspawn=" + capacity + " tier=" + tier)
@@ -161,6 +256,9 @@ function append_table(result, b)
 	return result
 }
 
+/**
+ * Get number of mining spots
+ */
 Room.prototype.get_mine_spots = function(force)
 {
 	if(!this.memory.last_mine_calc)
@@ -181,6 +279,13 @@ Room.prototype.get_mine_spots = function(force)
 	return spots
 }
 
+/**
+ * Get room capabilities
+ * Iterates through all objects in a room 
+ * and gathers 'logic' capabilities
+ * This capabilities can be used in a 
+ * planning system to check current state
+ */
 Room.prototype.get_capabilities = function(force)
 {
 	this.memory.capabilities = this.memory.capabilities || {}
@@ -216,6 +321,7 @@ Room.prototype.get_capabilities = function(force)
 	}
 	return this.memory.capabilities
 }
+
 /// Connect room spawn with mines
 Room.prototype.net_mines = function()
 {
@@ -242,6 +348,10 @@ Room.prototype.net_mines = function()
     }
 }
 
+/**
+ * Removes all the build sites from a room
+ * For testing stuff
+ */
 Room.prototype.remove_build_sites = function()
 {
     var sites = this.find(FIND_CONSTRUCTION_SITES)

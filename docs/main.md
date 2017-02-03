@@ -1,7 +1,9 @@
 
 # TODO #
 1. upgrader corp
-	- find best storage location
+	- find best location for logistics center:
+		- calculate distance map for each logistic object
+		- pick a point with least sum of a distances
 	- mark rail spots from logistics center
 	- calculate upgrader spots
 1. population management. Tier upgrades and creep renewal
@@ -18,4 +20,8 @@
 	- add upgrade-storage spots. Only upgraders are allowed to stand at this spots
 	- railway spot? 
 1. Calculate travel time for a creep and a path
+
+# Info #
+
+http://screeps.wikia.com/wiki/Globals
 

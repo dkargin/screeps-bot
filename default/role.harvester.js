@@ -611,14 +611,15 @@ class Harvester
         do
         {
             var old_state = creep.memory.state
-        //console.log(creep+' state='+creep.memory.state + ':' + this.analyse_body(creep))
+            // console.log(creep+' state='+creep.memory.state + ':' + this.analyse_body(creep))
             this.step_fsm(creep)
             /*
             if(old_state != creep.memory.state)
             {
                 console.log(creep.name + " state changed from "+old_state + " to " + creep.memory.state)
-            }*/
+            }
             //break;
+            */
             
         }while(old_state != creep.memory.state && iterations--)
 	}

@@ -145,7 +145,6 @@ class MineCorp extends Actions.EventHandler
         return 25*nstore*nmove / (distance*(nmove + 2*nstore))
     }
 
-    
     total_transfer_rate()
     {
         /// TODO: Calculate effective distance, checking the roads

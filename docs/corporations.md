@@ -2,10 +2,26 @@
 
 Corporations are representing a group of creeps and structures, that do some task in a isolated way, without help with 'external' creeps. This approach should reduce control complexity and reach maximum performance for specific economy role
 
+Every corporation has some sort of property. Corporation calculates maintenance costs for this property.
+
+Also each corporation class provides a set of AI actions, like 'build_miner'. This action describes an effect to the economy, like increasing resource flow or upgrade rate. This actions are used in economy planner. 
+
 ## MiningCorp ##
 
-Local corporations starts at t3 with access to optimal miner
-Remote mining starts at t2
+Corporation starts at t2 when logistics center is available
+Goal: deals with mining process
+Name: Mining@${roomName}@X${X}Y${Y}
+Property:
+	- energy source
+	- chest near energy source
+	- mining spot near energy source. We need only one spot
+	- 'drill' miner. It works until it gets very old
+	- number of servitors. Do we need it, or should we use logistics network
+
+Actions:
+	- Add miner. Generates income. Increases maintenance
+	- Add container near mine
+	- Add a road. Increases maintenance. Increases resource flow from movers
 
 ## UpgradeCorp ##
 
@@ -20,17 +36,15 @@ Property:
  - mover creep, if it can be occupied 100%
  - logistics source. This source can be moved to another place. Corporation should adapt to this change
 
-Starts at t2 with build access to a storage.
+Starts at t2 with build access to a storage
 
 UpgradeCorp request additional supplies every N ticks (i.e 10 ticks), with amount, equal to corporation energy consumption for this N ticks
 Some sort of room distribution manager decides which portion of room total income can be sent to UpgradeCorp, and confirms 'giveme' request with altered energy amount
 
 Actions for solver:
  - add new upgrader. Increases upgrade rate. Increases expenses
- - build a storage. Reduce expenses. Howmuch? (less movers)
+ - build a storage. Reduce expenses. Howmuch? (less movers). 
  - build a road. Increase road expenses, reduce mover expenses (faster transport rate) 
-
- 
 
 Calculates proper spots for upgraders and keeps upgraders at this spots. Controls energy delivery and distribution between working upgraders. Controls upgrader energy consumption up to room estimated production 
 
@@ -46,7 +60,6 @@ Need to allocate up to 8 upgrade spots around container near upgrading spot. One
 
 upgradersRequired = room.getIncomeToUpgraders() / workParts
   
-
 On start:
 1. Calculate upgrading spots
 
@@ -63,7 +76,6 @@ Property:
  - road around all the extensions
  
 Starts at t2 with the first extension group. Rents a worker at t3 to completely control extention filling
-
 
 All creeps with 'Refresh' job gather here and visit spawn in a strict order to prevent crowding. Maybe it is better to be of SpawnCorp
 
@@ -93,7 +105,5 @@ Information collected:
 
 ### Harrassment ###
 
-Turret deals 600 damage. Scout needs to survive two-three hits. Also should move at maximum speed
+Turret deals 600 damage at point blank range and 150 at max range. Scout needs to survive two-three hits. Also should move at maximum speed
 Harasser should have body like {ranged:1, melee:1, tough: 1, move:3}
-
-http://screeps.wikia.com/wiki/Globals
