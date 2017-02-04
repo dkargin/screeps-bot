@@ -1,7 +1,7 @@
-var Actions = require('utils.action')
+//var Actions = require('utils.action')
 
 /// Unpacks recipe from compact definition
-var unpack_recipe = function(packed_recipe)
+global.unpack_recipe = function(packed_recipe)
 {
     var result = []
     for(var t in packed_recipe)
@@ -17,7 +17,7 @@ var unpack_recipe = function(packed_recipe)
 }
 
 /// Takes recipe in form [work, work, carry, move] and returns in form {work:2, carry:1, move:1}
-var pack_recipe = function(recipe)
+global.pack_recipe = function(recipe)
 {
     var packed = {}
     for(var i in recipe)
@@ -31,9 +31,6 @@ var pack_recipe = function(recipe)
     return packed
 }
 
-Room.prototype.unpack_recipe = unpack_recipe
-Room.prototype.pack_recipe = pack_recipe
-
 var print_bp_costs = function()
 {
     for(var body in BODYPART_COST)
@@ -43,7 +40,7 @@ var print_bp_costs = function()
 }
 
 /// Get recipe cost for packed blueprint
-var get_recipe_cost = function(packed_bp)
+global.get_recipe_cost = function(packed_bp)
 {
     var cost = 0
     for(var part in packed_bp)

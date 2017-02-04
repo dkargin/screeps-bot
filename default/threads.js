@@ -332,40 +332,50 @@ class MoveTo extends Action
     }
 }
 
-module.exports =
+/// Table of active threads
+var ActiveThreads = 
 {
-	init_types : function()
+}
+
+class ThreadManager 
+{
+	/**
+	 * Add new thread
+	 */
+	start_thread(thread_fn, priority)
+	{
+		
+	}
+	init_types()
 	{
 		this.addType(new ActionSpawn())
 		this.addType(new ActionWait())
 		this.addType(new MoveTo())
-	},
+	}
 	
-	resultToString : check2str,
-	
-    addType : function(type)
+    addType(type)
     {
         ActionTypes[type.name] = type
-    },
+    }
     /// Get action for specified type
-    getType : function(type)
+    getType(type)
     {
         return ActionTypes[type]
-    },
+    }
     
-    Spawn : ActionSpawn,    
-    EventHandler : EventHandler,
+   // Spawn : ActionSpawn,    
+   // EventHandler : EventHandler,
     
-    addTaskWait : function(obj, duration, event)
+    addTaskWait(obj, duration, event)
     {
     	var action = ActionTypes.ActionWait
     	//console.log("CName="+action.constructor.name + " AName=" + action.name)
     	var data = {action : action.constructor.name}
     	action.attach(obj, data, duration, event)
     	this.taskqueue_add(obj, data)
-    },
+    }
     /// Add task data to the queue
-    taskqueue_add: function(obj, data)
+    taskqueue_add(obj, data)
     {
     	if(!data.action)
     	{
@@ -384,15 +394,15 @@ module.exports =
          * The rest of the fields contain task-specific data
          */
         obj.memory.action_queue.push(data)
-    },
+    }
     /// Get first task
-    taskqueue_first : function(obj)
+    taskqueue_first(obj)
     {
     	return obj.memory.action_queue[0]
-    },
+    }
     
     /// Pop first action from action queue
-    taskqueue_pop : function(obj)
+    taskqueue_pop(obj)
     {
     	if(obj.memory.action_queue.length == 0)
     		return
@@ -407,24 +417,24 @@ module.exports =
     			action.clear(obj)
     	}
     	obj.memory.action_queue.shift()
-    },
+    }
     
-    taskqueue_clear : function(obj)
+    taskqueue_clear(obj)
     {
     	while(obj.memory.action_queue.length > 0)
 		{
     		this.taskqueue_pop(obj)
 		}
-    },
+    }
     
     /// Get task queue length
-    taskqueue_length : function(obj)
+    taskqueue_length(obj)
     {
     	return obj.memory.action_queue.length
-    },
+    }
     
     /// Process task queue
-    taskqueue_process : function(obj)
+    taskqueue_process(obj)
     {
     	if(obj.memory.action_queue.length == 0)
     		return
@@ -456,8 +466,9 @@ module.exports =
 			console.log("tasqueue_process: unprocessed check result="+check_result)
 		}
     }
-};
+}
 
+module.exports = new ThreadManager();
 
 var tick = 0
 
@@ -496,12 +507,6 @@ function test_action_queue()
 		Actions.addTaskWait(obj, 8, testCorp.makeHandler('event3'))
 	}
 	
-	/*
-	if(tick == 3)
-	{
-		Actions.taskqueue_pop(obj)
-	}*/
-	
 	Actions.taskqueue_process(obj)
 	
 	if(tick > 24)
@@ -512,3 +517,29 @@ function test_action_queue()
 	
 	tick = tick + 1
 }
+
+/*
+var testCorp = new Actions.EventHandler("test_corp")
+
+testCorp.event0 = function(event, result)
+{
+    this.executed = true
+	console.log("testCorp executed event")
+}
+
+
+testCorp.event1 = function(event, result)
+{
+	console.log("<h>Event1 result=</h>" + Actions.resultToString(result))
+}
+
+testCorp.event2 = function(event, result)
+{
+	console.log("<h>Event2 result=</h>" + Actions.resultToString(result))	
+}
+
+testCorp.event3 = function(event, result)
+{
+	console.log("Event3 result=" + Actions.resultToString(result))	
+}
+*/

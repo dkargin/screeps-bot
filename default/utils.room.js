@@ -21,6 +21,9 @@ const SPOT_SPAWN = 6 				/// New creeps spawn here
 const SPOT_GATE = 7
 const SPOT_EXTENSION = 8
 
+const ROOM_DATA_VERSION = 1
+const ROOM_DATA_TERRAIN_VERSION = 1
+
 /// Ring of 8 points around center at [0, 0]
 const contour_1 = [[1, 0], 
 	[1,1], [0, 1], [-1, 1], 
@@ -35,60 +38,285 @@ const contour_2 = [
 	[-2,-2], [-1,-2], [ 0,-2], [ 1,-2]
 ]
 
+var Database = {}
+/**
+ * RoomData class
+ * contains cache for room contents, even for a room that is not accessible, 
+ * but visited recently
+ */
+
+global.coords2str = function(x,y)
+{
+	return "X"+x+"Y"+y
+}
+
 class RoomData
 {
 	constructor(name)
 	{
 		this.name = name
-		this.tiles = new Array[50*50]
-		this.room = Game.rooms[name]
-		this.mines = {}
+		Memory.room_data = Memory.room_data || {}
+		
+		Memory.room_data[this.name] = Memory.room_data[this.name] || {}
+		
+		var info = Memory.room_data[this.name]
+		this.tiles = info.tiles
+		this.room = Game.rooms[this.name]
+		var def = {
+			mines: {}, 
+			economy:{},
+			lairs:{},
+		}
+		_.defaults(info, def)
+		
+		if(!info.tiles || !info.tiles.length)
+			info.tiles = new Array(50*50) 
 	}
 	
+	/**
+	 * Get attached room info from persistent memory
+	 */
+	get_info()
+	{
+		return Memory.room_data[this.name]
+	}
+	
+	/**
+	 * Check whether room is available for scanning
+	 */
+	is_available()
+	{
+		return _.isObject(this.room)
+	}
+	
+	/**
+	 * Get array of tiles
+	 */
+	get_tiles()
+	{
+		return get_info().tiles
+	}
+	
+	/**
+	 * Get a single tile
+	 */
 	get_tile(x,y)
 	{
 		return this.tiles[x + y*50]
 	}
 	
-	/// Read terrain and generate proper spots
-	analyse_terrain()
+	/**
+	 * Check whether the room is fully explored
+	 */
+	is_explored()
 	{
-		if(room && room.memory.has_terrain)
+		var info = this.get_info()
+	}
+	
+	/**
+	 * Read terrain data
+	 */
+	read_terrain()
+	{
+		var info = this.get_info()
+		/// Do not read room data if we have already one
+		if(info.terrain_version && info.terrain_version == ROOM_DATA_TERRAIN_VERSION)
+		{
+			console.log("Room " + this.name + " terrain is already scanned")
 			return
+		}
+			
+		var rname = this.name
 		/// 1. Gather the terrain
 		for(var y = 0; y < 50; y++)
 		{
+			var row = y*50
 			for(var x = 0; x < 50; x++)
 			{
-	            var info = {terrain:0, spot:SPOT_FREE}
-	            var tile = Game.map.getTerrainAt(spot_pos)
-	            if(tile == 'wall')
-	            	info.terrain = TERRAIN_WALL
-	            else if(tile == 'swamp')
-	            	info.terrain = TERRAIN_SWAMP
+	            var tile = {terrain:0, spot:SPOT_FREE}
+	            var raw_tile = Game.map.getTerrainAt(x,y, rname)
+	            if(raw_tile == 'wall')
+	            	tile.terrain = TERRAIN_WALL
+	            else if(raw_tile == 'swamp')
+	            	tile.terrain = TERRAIN_SWAMP
 				
-				this.tiles[x+y*50] = tile
+				this.tiles[x+row] = tile
 			}
 		}
 		
-		/// 2. Draw mines and its spots
+		/// 2. Read data aboud room structures
 		if(this.room)
 		{
-			var data = this
 			var filter = function(mine)
 			{
-				data.mines[mine.id] = {type:'E', x:mine.pos.x, y:mine.pos.y}
-				data.mark_area_1(mine.pos.x, mine.pos.y, (tile) => tile.terrain != TERRAIN_WALL ? SPOT_MINE : SPOT_FREE)
+				info.mines[mine.id] = {type:'E', x:mine.pos.x, y:mine.pos.y}		
 				return true
 			}
 			this.room.find(FIND_SOURCES, {filter:filter})
+			
+			var ctrl = this.room.controller
+			info.controller = {
+				level:ctrl.level, 
+				x:ctrl.pos.x, 
+				y:ctrl.pos.y,
+				progress:ctrl.progress,
+				total:ctrl.progressTotal
+			}
 		}
 		
+		info.terrain_version = ROOM_DATA_TERRAIN_VERSION
+		console.log("Scanned room " + this.name + " terrain")
+	}
+		
+	*draw_mine_spots()
+	{
+		var info = this.get_info()
+		var cpos = new RoomPosition(info.center[0], info.center[1], this.name)
+		
+		var pf_opts = {maxRooms:1, range:0, heuristicWeight:0}
+		
+		for(var m in info.mines)
+		{
+			yield "calculating path to mine " + m
+			var mine = info.mines[m]
+			var mpos = this.room.getPositionAt(mine.x, mine.y)
+			
+			var path = cpos.findPathTo(mpos)
+			//var ret = PathFinder.search(cpos, mpos, pf_opts)
+			//var path = ret.path
+			
+			if(path.length > 1)
+			{
+				var finish = path[path.length-2];
+				
+				mine.spot = [finish.x, finish.y]
+				
+				var fname = "MSpot"+coords2str(...mine.spot)
+				this.room.createFlag(...mine.spot, fname, COLOR_RED)
+				
+				mine.distance_min = path.length
+				mine.distance = this.effecive_path_length(path)
+				
+				for(var i in path)
+		        {
+		            var wp = path[i]
+		            this.room.createConstructionSite(wp.x, wp.y, STRUCTURE_ROAD)
+		        }
+			}
+			else
+			{
+				console.log("No path to mine " + coords2str(mine.x, mine.y))
+			}			
+			//mine.distance = this.effecive_path_length(path)
+			this.mark_area_1(mine.x, mine.y, (tile) => tile.terrain != TERRAIN_WALL ? SPOT_MINE : SPOT_FREE)
+			//console.log("Mine dist=" + mine.distance + " dist_max="+mine.distance_min + JSON.stringify(mine))		
+		}
+	}
+	
+	draw_upgrader_spots()
+	{
+		var info = this.get_info()
+		var centerPos = new RoomPosition(info.center[0], info.center[1], this.name)
+	}
 
+	/// Read terrain and generate proper spots
+	*map_analyser()
+	{	
+		this.read_terrain()
+	
+		yield "read_terrain"
+		
+		
+		var info = this.get_info()
+		/// TODO: calculate proper logistics center using wave distance generator
+		info.center = [25, 25]
+		
+		this.room.createFlag(...info.center, "LCenter", COLOR_RED)
+		
+		yield *this.draw_mine_spots()
+		
+		/**
+		 * Need best spot for chest:
+		 * 	- no adjacent positions are mine spots
+		 * Ищем спот по кольцу на расстоянии 2, в котором:
+		 * 1. Влезает сундук
+		 * 2. Максимальное количество доступных мест вокруг сундука. 8 шт
+		 * 3. Меньшее расстояние до логистического центра
+		 */ 
+		//
+		var uspots = []
+		for(var i in contour_2)
+		{
+			var delta = contour_2[i]
+			var [x,y] = [info.controller.x + delta[0], info.controller.y + delta[1]]
+			
+			var nspots = 0
+			
+			var valid = true
+			
+			for(var y0 = y-1; y0 <= y+1; y0++)
+			{
+				for(var x0 = x-1;x0 <= x+1; x0++)
+				{
+					var tile = this.get_tile(x0, y0)
+					/// Check chest spot
+					if(x0 == x && y0 == y)
+					{
+						/// Check if chest can be placed here
+						if( tile.terrain == TERRAIN_WALL || tile.spot != SPOT_FREE)
+							valid = false
+					}
+					else if(tile.spot != SPOT_MINE && tile.spot != SPOT_MINE_CHEST)
+					{
+						nspots++
+					}
+				}
+			}
+			
+			if(!valid || nspots < 4)
+			{
+				continue
+			}
+			
+			uspots.push(this.room.getPositionAt(x,y))
+		}
+		
+		var centerPos = this.room.getPositionAt(...info.center)
+		
+		var closest = centerPos.findClosestByPath(uspots, {IgnoreCreeps:true})
+		if(closest)
+		{
+			this.room.createFlag(closest.x,closest.y, "UChest")
+			info.uspot = [closest.x, closest.y]
+		}
+		
+		//var ret = PathFinder.search(centerPos, uspots, {IgnoreCreeps:true})
+		//if(!ret.incomplete)
+		else
+		{
+			console.log("ERROR: failed to find best path for upgrader spots")
+		}		
 		/// 3. Calculate best position for upgrader chest
 		///		iterate through all contour points at distance = 2
 		/// 4. Draw upgrader spots
+		
+		yield "Generating upgrader spots"
 	}
+	
+	/**
+	 * Calculate effective path length
+	 */
+	effecive_path_length(path)
+	{
+		var distance = 0
+		for(var i = 0; i < path.length; i++)
+		{
+			var tile = this.get_tile(path[i].x, path[i].y)
+			distance += (tile.terrain == TERRAIN_SWAMP ? 5 : 1)	
+		}
+		return distance
+	}
+
 	
 	/**
 	 * Marks area around specified point using callback
@@ -111,8 +339,53 @@ class RoomData
 			}
 		}
 	}
+	
+	/**
+	 * Check 3x3 area
+	 * @returns true if all cells inside pass the check
+	 */
+	check_area(x0, y0, size,  callback)
+	{
+		for(var y = y0-size; y <= y0+size; y++)
+		{
+			for(var x = x0-size; x <= x0+size; x++)
+			{
+				if(x == 0 || x == 49 || y == 0 || y == 49)
+					continue				
+				var tile = this.get_tile(x, y)
+				if(!callback(tile, x, y))
+					return false
+			}
+		}
+		return true
+	}
+	
+	show_markers()
+	{
+		return
+		var room = Game.rooms[this.name]
+		if(!room)
+			return
+			
+		var info = this.get_info()
+		
+		for(var m in info.mines)
+		{
+			room.createFlag(m.x, m.y, "MSpot#"+name+"X"+m.x + "Y"+m.y)
+		}
+		
+		room.createFlag(m.x, m.y, "USpot#"+name+"X"+m.x + "Y"+m.y)
+	}
 }
 
+global.show_markers = function()
+{
+	for(var r in Database)
+	{
+		var data = Database[r]
+		data.show_markers()
+	}
+}
 /**
  * Lists free spots around this room position
  */
@@ -201,7 +474,7 @@ Room.prototype.make_road = function(from, to, skip)
 Room.prototype.get_tech_tier = function()
 {
 	var tick = Game.tick
-	var tiers = [ 0, 0, 250, 500, 1000 ]
+	var tiers = [ 0, 250, 500, 1000 ]
 	var capacity = this.energyCapacityAvailable
 	var capabilities = this.get_capabilities()
 	
@@ -222,6 +495,9 @@ Room.prototype.get_tech_tier = function()
 			tier = i+1
 		}
 	}
+	
+	if(this.controller.level < tier)
+		tier = this.controller.level
 	//console.log("Room has tspawn=" + capacity + " tier=" + tier)
 	return tier
 }
@@ -363,9 +639,17 @@ Room.prototype.remove_build_sites = function()
     }
 }
 
-module.exports = {
-    init : function()
+var Utils = {
+	init : function()
     {
         
-    }
-};
+    },
+    get_room_data : function(name)
+    {
+    	if(!Database[name])
+    		Database[name] = new RoomData(name)
+    	return Database[name]
+    },	
+}
+
+module.exports = Utils;

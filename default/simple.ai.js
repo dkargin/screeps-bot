@@ -20,6 +20,8 @@ var firstTick = true
  
 function simple_ai()
 {
+	if(!Memory['simple.ai'])
+		return
 	var errors = []
 	var population = {}
 	
@@ -120,7 +122,7 @@ function simple_ai()
 				}
 				else
 				{
-				    //console.log("Failed to spawn " + name + "=" + desc.body + " : "+result)
+				    console.log("Failed to spawn " + name + "=" + desc.body + " : "+result)
 				}
 			}
 		}

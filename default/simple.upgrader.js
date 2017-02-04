@@ -57,7 +57,7 @@ module.exports = new class extends CreepBase.Behaviour
 		
 		if(tier >= 4)
 			return {
-				name: 'SU', body : room.unpack_recipe({work:10, carry:4, move:4}), mem : {role:this.role(), tier : 4 }
+				name: 'SU', body : room.unpack_recipe({work:8, carry:4, move:4}), mem : {role:this.role(), tier : 4 }
 			}
 		else if(tier == 3)
 			return {
@@ -83,7 +83,7 @@ module.exports = new class extends CreepBase.Behaviour
 	get_desired_population(room)
 	{
 		var caps = room.get_capabilities()
-		if(caps.mine == 0)
+		if(caps.mine === 0)
 			return 0
 		//if(caps.mine > 0)
 		//	return caps.mine / 2

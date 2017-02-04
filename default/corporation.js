@@ -8,7 +8,7 @@
  */
  
 var Rooms = require("utils.room")
-var Actions = require("utils.action")
+//var Actions = require("threads")
 
 /// Storage for corporation types
 /// Will be used for memory state restoration
@@ -35,12 +35,12 @@ function check_alive(objects)
  * - miner
  * - storage nearby the mine
 **/
-class MineCorp extends Actions.EventHandler
+class MineCorp //extends Actions.EventHandler
 {
     constructor(mine, unload_obj)
     {
         var name = "MineCorp" + mine.id
-        super(name)
+        //super(name)
         
         Corporations[name] = this
         
@@ -359,8 +359,6 @@ Room.prototype.analyse_mines=function(center)
         mine.memory.corp = corp.name
         
         corp.analyse_mine()
-        
-        //mine.memory = _.merge(mine.memory, info)
     }
 }
 

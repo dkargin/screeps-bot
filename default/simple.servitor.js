@@ -263,8 +263,8 @@ Creep.prototype.servitor_transfer_creep = function(obj)
 function filter_structures(obj)
 {
 	var t = obj.structureType;
-	//return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN || t == STRUCTURE_TOWER) && 
-	return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN) &&
+	return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN || t == STRUCTURE_TOWER) && 
+	//return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN) &&
 		obj.energy < obj.energyCapacity;
 }
 
