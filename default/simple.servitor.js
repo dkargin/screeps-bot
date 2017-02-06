@@ -484,15 +484,15 @@ module.exports = new class extends CreepBase.Behaviour
 		var tier = room.get_tech_tier()
 		if(tier >= 3)
 			return {
-				name: 'SV', body : room.unpack_recipe({carry:8, move:8}), mem : {role:this.role(), tier : 3 }
+				name: 'SV', body : unpack_recipe({carry:8, move:8}), mem : {role:this.role(), tier : 3 }
 			} 
 		else if(tier == 2)
 			return {
-				name: 'SV', body : room.unpack_recipe({carry:5, move:5}), mem : { role:this.role(), tier: 2 }
+				name: 'SV', body : unpack_recipe({carry:5, move:5}), mem : { role:this.role(), tier: 2 }
 			}	
 		else
 			return {
-				name: 'SV', body : room.unpack_recipe({carry:3, move:3}), mem : {role:this.role(), tier : 1 }
+				name: 'SV', body : unpack_recipe({carry:3, move:3}), mem : {role:this.role(), tier : 1 }
 			}
 	}
 	

@@ -57,19 +57,19 @@ module.exports = new class extends CreepBase.Behaviour
 		
 		if(tier >= 4)
 			return {
-				name: 'SU', body : room.unpack_recipe({work:8, carry:4, move:4}), mem : {role:this.role(), tier : 4 }
+				name: 'SU', body : unpack_recipe({work:8, carry:4, move:4}), mem : {role:this.role(), tier : 4 }
 			}
 		else if(tier == 3)
 			return {
-				name: 'SU', body : room.unpack_recipe({work:6, carry:2, move:2}), mem : {role:this.role(), tier : 3 }
+				name: 'SU', body : unpack_recipe({work:6, carry:2, move:2}), mem : {role:this.role(), tier : 3 }
 			} 
 		else if(tier == 2)
 			return {
-				name: 'SU', body : room.unpack_recipe({work:4, carry:1, move:2}), mem : { role:this.role(), tier: 2 }
+				name: 'SU', body : unpack_recipe({work:4, carry:1, move:2}), mem : { role:this.role(), tier: 2 }
 			}	
 		else
 			return {
-				name: 'SU', body : room.unpack_recipe({work:2, carry:1, move:1}), mem : {role:this.role(), tier : 1 }
+				name: 'SU', body : unpack_recipe({work:2, carry:1, move:1}), mem : {role:this.role(), tier : 1 }
 			}
 	}
 	

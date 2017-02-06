@@ -21,8 +21,10 @@ const SPOT_SPAWN = 6 				/// New creeps spawn here
 const SPOT_GATE = 7
 const SPOT_EXTENSION = 8
 
+/// Versions for data storage
 const ROOM_DATA_VERSION = 1
 const ROOM_DATA_TERRAIN_VERSION = 1
+const ROOM_DATA_MINES_VERSION = 2
 
 /// Ring of 8 points around center at [0, 0]
 const contour_1 = [[1, 0], 
@@ -60,7 +62,7 @@ class RoomData
 		Memory.room_data[this.name] = Memory.room_data[this.name] || {}
 		
 		var info = Memory.room_data[this.name]
-		this.tiles = info.tiles
+		
 		this.room = Game.rooms[this.name]
 		var def = {
 			mines: {}, 
@@ -69,8 +71,14 @@ class RoomData
 		}
 		_.defaults(info, def)
 		
-		if(!info.tiles || !info.tiles.length)
-			info.tiles = new Array(50*50) 
+		if(!info.terrain || !info.terrain.length)
+			info.terrain = new Array(50*50)
+
+		if(!info.spots || !info.spots.length)
+			info.spots = new Array(50*50) 
+
+		this.terrain = info.terrain
+		this.spots = info.spots
 	}
 	
 	/**
@@ -90,19 +98,26 @@ class RoomData
 	}
 	
 	/**
-	 * Get array of tiles
-	 */
-	get_tiles()
-	{
-		return get_info().tiles
-	}
-	
-	/**
 	 * Get a single tile
 	 */
-	get_tile(x,y)
+	get_terrain(x,y)
 	{
 		return this.tiles[x + y*50]
+	}
+
+	set_terrain(x,y, t)
+	{
+		this.tiles[x+y*50] = t
+	}
+
+	get_spot(x,y)
+	{
+		return this.spots[x+y*50]
+	}
+
+	set_spot(x,y, s)
+	{
+		this.spots[x+y*50] = s
 	}
 	
 	/**
@@ -133,14 +148,12 @@ class RoomData
 			var row = y*50
 			for(var x = 0; x < 50; x++)
 			{
-	            var tile = {terrain:0, spot:SPOT_FREE}
 	            var raw_tile = Game.map.getTerrainAt(x,y, rname)
 	            if(raw_tile == 'wall')
-	            	tile.terrain = TERRAIN_WALL
+	            	this.terrain[x+row] = TERRAIN_WALL
 	            else if(raw_tile == 'swamp')
-	            	tile.terrain = TERRAIN_SWAMP
-				
-				this.tiles[x+row] = tile
+	            	this.terrain[x+row] = TERRAIN_SWAMP
+	            this.spots[x+row] = 0
 			}
 		}
 		
@@ -152,6 +165,7 @@ class RoomData
 				info.mines[mine.id] = {type:'E', x:mine.pos.x, y:mine.pos.y}		
 				return true
 			}
+
 			this.room.find(FIND_SOURCES, {filter:filter})
 			
 			var ctrl = this.room.controller
@@ -167,10 +181,17 @@ class RoomData
 		info.terrain_version = ROOM_DATA_TERRAIN_VERSION
 		console.log("Scanned room " + this.name + " terrain")
 	}
-		
+	
 	*draw_mine_spots()
 	{
 		var info = this.get_info()
+		console.log("Mine version="+info.mine_version + " D="+JSON.stringify(info))
+		
+		if(info.mine_version && info.mine_version == ROOM_DATA_MINES_VERSION)
+		{
+			console.log("Room " + this.name + " mine data is already calculated")
+			return
+		}
 		var cpos = new RoomPosition(info.center[0], info.center[1], this.name)
 		
 		var pf_opts = {maxRooms:1, range:0, heuristicWeight:0}
@@ -182,8 +203,6 @@ class RoomData
 			var mpos = this.room.getPositionAt(mine.x, mine.y)
 			
 			var path = cpos.findPathTo(mpos)
-			//var ret = PathFinder.search(cpos, mpos, pf_opts)
-			//var path = ret.path
 			
 			if(path.length > 1)
 			{
@@ -196,12 +215,7 @@ class RoomData
 				
 				mine.distance_min = path.length
 				mine.distance = this.effecive_path_length(path)
-				
-				for(var i in path)
-		        {
-		            var wp = path[i]
-		            this.room.createConstructionSite(wp.x, wp.y, STRUCTURE_ROAD)
-		        }
+				mine.path_bin = Room.serializePath(path)
 			}
 			else
 			{
@@ -211,6 +225,10 @@ class RoomData
 			this.mark_area_1(mine.x, mine.y, (tile) => tile.terrain != TERRAIN_WALL ? SPOT_MINE : SPOT_FREE)
 			//console.log("Mine dist=" + mine.distance + " dist_max="+mine.distance_min + JSON.stringify(mine))		
 		}
+
+		info.mine_version = ROOM_DATA_MINES_VERSION
+
+		console.log("mine spots calculation is complete, ver=" + info.mine_version)
 	}
 	
 	draw_upgrader_spots()
@@ -258,15 +276,16 @@ class RoomData
 			{
 				for(var x0 = x-1;x0 <= x+1; x0++)
 				{
-					var tile = this.get_tile(x0, y0)
+					var terrain = this.get_terrain(x0, y0)
+					var spot = this.get_spot(x0, y0)
 					/// Check chest spot
 					if(x0 == x && y0 == y)
 					{
 						/// Check if chest can be placed here
-						if( tile.terrain == TERRAIN_WALL || tile.spot != SPOT_FREE)
+						if( terrain == TERRAIN_WALL || spot != SPOT_FREE)
 							valid = false
 					}
-					else if(tile.spot != SPOT_MINE && tile.spot != SPOT_MINE_CHEST)
+					else if(spot != SPOT_MINE && spot != SPOT_MINE_CHEST)
 					{
 						nspots++
 					}
@@ -311,8 +330,8 @@ class RoomData
 		var distance = 0
 		for(var i = 0; i < path.length; i++)
 		{
-			var tile = this.get_tile(path[i].x, path[i].y)
-			distance += (tile.terrain == TERRAIN_SWAMP ? 5 : 1)	
+			var terrain = this.get_terrain(path[i].x, path[i].y)
+			distance += (terrain == TERRAIN_SWAMP ? 5 : 1)	
 		}
 		return distance
 	}
