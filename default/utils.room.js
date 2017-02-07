@@ -102,12 +102,12 @@ class RoomData
 	 */
 	get_terrain(x,y)
 	{
-		return this.tiles[x + y*50]
+		return this.terrain[x + y*50]
 	}
 
 	set_terrain(x,y, t)
 	{
-		this.tiles[x+y*50] = t
+		this.terrain[x+y*50] = t
 	}
 
 	get_spot(x,y)
@@ -222,7 +222,7 @@ class RoomData
 				console.log("No path to mine " + coords2str(mine.x, mine.y))
 			}			
 			//mine.distance = this.effecive_path_length(path)
-			this.mark_area_1(mine.x, mine.y, (tile) => tile.terrain != TERRAIN_WALL ? SPOT_MINE : SPOT_FREE)
+			this.mark_area_1(mine.x, mine.y, (tile) => tile != TERRAIN_WALL ? SPOT_MINE : SPOT_FREE)
 			//console.log("Mine dist=" + mine.distance + " dist_max="+mine.distance_min + JSON.stringify(mine))		
 		}
 
@@ -352,9 +352,9 @@ class RoomData
 				if(x == x0 && y == y0)
 					continue
 				
-				var tile = this.get_tile(x, y)
+				var tile = this.get_terrain(x, y)
 				var spot = callback(tile, x, y)
-				tile.spot = spot
+				this.set_spot(x,y, spot)
 			}
 		}
 	}
