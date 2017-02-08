@@ -10,5 +10,6 @@ Servitor issues
 	- suicide spot
 	- proper creep upgrade queue. It's too long to wait until outdated creep dies 
 - deliver bulk loads. Right now servitor sticks to an active builder/upgrader for too long. We need to deliver bulk to a sort of container and stop creeps requesting delivery directly. Also new solution should not cause active creeps stall too much being out of resource and waiting for delivery
+- do not fill tower on t1
 
 

@@ -20,6 +20,7 @@ const SPOT_RENEW = 5				/// Renew spot near the spawn
 const SPOT_SPAWN = 6 				/// New creeps spawn here
 const SPOT_GATE = 7
 const SPOT_EXTENSION = 8
+const SPOT_ROAD = 9
 
 /// Versions for data storage
 const ROOM_DATA_VERSION = 1
@@ -52,6 +53,16 @@ global.coords2str = function(x,y)
 	return "X"+x+"Y"+y
 }
 
+/**
+ * Get flat distance between two points
+ */
+function flat_distance(a,b)
+{
+	var dx = Math.abs(a.x - b.x)
+	var dy = Math.abs(a.y - b.y)
+	return Math.max(dx, dy)
+}
+
 class RoomData
 {
 	constructor(name)
@@ -79,6 +90,7 @@ class RoomData
 
 		this.terrain = info.terrain
 		this.spots = info.spots
+		this.structures = this.structures || []
 	}
 	
 	/**
@@ -128,6 +140,10 @@ class RoomData
 		var info = this.get_info()
 	}
 	
+	read_structures()
+	{
+
+	}
 	/**
 	 * Read terrain data
 	 */
@@ -154,6 +170,13 @@ class RoomData
 	            else if(raw_tile == 'swamp')
 	            	this.terrain[x+row] = TERRAIN_SWAMP
 	            this.spots[x+row] = 0
+
+	            /*
+	            var objects = this.room.lookForAt(LOOK_STRUCTURE, x, y)
+	            for(var i in objects)
+	            {
+	            	var obj = objects[i]
+	            }*/
 			}
 		}
 		
@@ -181,10 +204,74 @@ class RoomData
 		info.terrain_version = ROOM_DATA_TERRAIN_VERSION
 		console.log("Scanned room " + this.name + " terrain")
 	}
-	
-	*draw_mine_spots()
+
+	/// Get RoomPosition of logistics center
+	get_logistics_center(info)
 	{
-		var info = this.get_info()
+		if(!info)
+			info = this.get_info()
+		return new RoomPosition(info.center[0], info.center[1], this.name)
+	}
+	
+	/// Occupies map cells for specified mine
+	draw_mine_spots(mine, info)
+	{
+		/// Get room center position
+		var cpos = this.get_logistics_center(info)
+		/// Get path to a mine
+		var path = cpos.findPathTo(this.room.getPositionAt(mine.x, mine.y), {ignoreCreeps:true})
+
+		/* TODO: 
+		Since we occupy spots near both mine and chest, there can be better 
+		solutions for chest placing, allowing more mining spots. It can improve 
+		performance on lower tiers. 
+		Right now we pick chest position from the final point of path from 
+		logistics center to the mine
+		*/
+		/// 1. Find chest location
+		if(path.length > 1)
+		{
+			var finish = path[path.length-2];
+			
+			mine.spot = [finish.x, finish.y]
+			
+			var fname = "MSpot"+coords2str(...mine.spot)
+			
+			this.room.createFlag(...mine.spot, fname, COLOR_RED)
+			
+			mine.distance_min = path.length
+			mine.distance = this.effecive_path_length(path)
+			mine.path_bin = Room.serializePath(path)
+			for(var i = 0; i < path.length-3; i++)
+				this.set_spot(path[i].x, path[i].y, SPOT_ROAD)
+		}
+		else
+		{
+			console.log("No path to mine " + coords2str(mine.x, mine.y))
+		}
+		
+		mine.distance = this.effecive_path_length(path)
+
+		/// 2. Occupy spots for a mine
+		var roomdata = this
+		var iterator = function(x, y)
+		{
+			if(roomdata.get_terrain(x, y) == TERRAIN_WALL)
+				return
+			var spot = roomdata.get_spot(x,y)
+			var len = flat_distance({x:x, y:y}, mine.spot)
+			/// We occupy only spots nearby to the chest
+			if(spot == SPOT_FREE && len < 2)
+			{
+				roomdata.set_spot(x,y, SPOT_MINE)
+				roomdata.room.createFlag(x, y, fname, COLOR_GREEN)
+			}
+		}
+		this.mark_area_1(mine.x, mine.y, iterator)
+	}
+	
+	*process_mines(info)
+	{
 		console.log("Mine version="+info.mine_version + " D="+JSON.stringify(info))
 		
 		if(info.mine_version && info.mine_version == ROOM_DATA_MINES_VERSION)
@@ -192,38 +279,11 @@ class RoomData
 			console.log("Room " + this.name + " mine data is already calculated")
 			return
 		}
-		var cpos = new RoomPosition(info.center[0], info.center[1], this.name)
-		
-		var pf_opts = {maxRooms:1, range:0, heuristicWeight:0}
 		
 		for(var m in info.mines)
 		{
 			yield "calculating path to mine " + m
-			var mine = info.mines[m]
-			var mpos = this.room.getPositionAt(mine.x, mine.y)
-			
-			var path = cpos.findPathTo(mpos)
-			
-			if(path.length > 1)
-			{
-				var finish = path[path.length-2];
-				
-				mine.spot = [finish.x, finish.y]
-				
-				var fname = "MSpot"+coords2str(...mine.spot)
-				this.room.createFlag(...mine.spot, fname, COLOR_RED)
-				
-				mine.distance_min = path.length
-				mine.distance = this.effecive_path_length(path)
-				mine.path_bin = Room.serializePath(path)
-			}
-			else
-			{
-				console.log("No path to mine " + coords2str(mine.x, mine.y))
-			}			
-			//mine.distance = this.effecive_path_length(path)
-			this.mark_area_1(mine.x, mine.y, (tile) => tile != TERRAIN_WALL ? SPOT_MINE : SPOT_FREE)
-			//console.log("Mine dist=" + mine.distance + " dist_max="+mine.distance_min + JSON.stringify(mine))		
+			this.draw_mine_spots(info.mines[m], info)
 		}
 
 		info.mine_version = ROOM_DATA_MINES_VERSION
@@ -231,46 +291,41 @@ class RoomData
 		console.log("mine spots calculation is complete, ver=" + info.mine_version)
 	}
 	
-	draw_upgrader_spots()
+	draw_upgrader_spots(info)
 	{
 		var info = this.get_info()
 		var centerPos = new RoomPosition(info.center[0], info.center[1], this.name)
 	}
 
-	/// Read terrain and generate proper spots
-	*map_analyser()
-	{	
-		this.read_terrain()
-	
-		yield "read_terrain"
-		
-		
-		var info = this.get_info()
-		/// TODO: calculate proper logistics center using wave distance generator
-		info.center = [25, 25]
-		
-		this.room.createFlag(...info.center, "LCenter", COLOR_RED)
-		
-		yield *this.draw_mine_spots()
-		
-		/**
-		 * Need best spot for chest:
-		 * 	- no adjacent positions are mine spots
-		 * Ищем спот по кольцу на расстоянии 2, в котором:
-		 * 1. Влезает сундук
-		 * 2. Максимальное количество доступных мест вокруг сундука. 8 шт
-		 * 3. Меньшее расстояние до логистического центра
-		 */ 
-		//
+	/// Check if coordinate is occupied by any sort of building
+	is_occupied(x, y)
+	{
+		var structures = this.room.lookForAt(LOOK_STRUCTURES, x, y)
+		for(var i in structures)
+		{
+			var structure = structures[i]
+			if(structure.structureType != STRUCTURE_CONTAINER)
+				return true;
+		}
+		return false
+	}
+
+	/// Finds best position for upgrader chest
+	find_best_upgrader_spot(info)
+	{
+//
 		var uspots = []
+		/// 1. Search for the best upgrader spot
 		for(var i in contour_2)
 		{
 			var delta = contour_2[i]
 			var [x,y] = [info.controller.x + delta[0], info.controller.y + delta[1]]
 			
 			var nspots = 0
-			
 			var valid = true
+
+			if(this.is_occupied(x,y))
+				continue
 			
 			for(var y0 = y-1; y0 <= y+1; y0++)
 			{
@@ -301,16 +356,60 @@ class RoomData
 		}
 		
 		var centerPos = this.room.getPositionAt(...info.center)
-		
 		var closest = centerPos.findClosestByPath(uspots, {IgnoreCreeps:true})
+		return closest
+	}
+
+	/// Calculates room logistics center
+	calc_logistics_center(info)
+	{
+		var objs=this.room.find(FIND_STRUCTURES, {filter: { structureType: STRUCTURE_STORAGE }})
+		if(objs.length > 0)
+		{
+			return [objs[0].pos.x, objs[0].pos.y]
+		}
+
+		/// TODO: calculate proper logistics center using wave distance generator
+		return [25, 25]
+	}
+	/// Read terrain and generate proper spots
+	*map_analyser()
+	{	
+		this.read_terrain()
+	
+		yield "read_terrain"
+			
+		var info = this.get_info()
+		
+		info.center = this.calc_logistics_center(info)
+		
+		this.room.createFlag(...info.center, "LCenter", COLOR_YELLOW)
+		
+		yield *this.process_mines(info)
+		
+		/**
+		 * Need best spot for chest:
+		 * 	- no adjacent positions are mine spots
+		 * Ищем спот по кольцу на расстоянии 2, в котором:
+		 * 1. Влезает сундук
+		 * 2. Максимальное количество доступных мест вокруг сундука. 8 шт
+		 * 3. Меньшее расстояние до логистического центра
+		 */ 
+		var closest = this.find_best_upgrader_spot(info)
 		if(closest)
 		{
 			this.room.createFlag(closest.x,closest.y, "UChest")
 			info.uspot = [closest.x, closest.y]
 		}
+
+		var cpos = this.get_logistics_center(info)
+		/// Get path to a mine
+		var path = cpos.findPathTo(this.room.getPositionAt(closest.x, closest.y),{ignoreCreeps:true})
 		
-		//var ret = PathFinder.search(centerPos, uspots, {IgnoreCreeps:true})
-		//if(!ret.incomplete)
+		if(path && path.length > 2)
+		{
+
+		}
 		else
 		{
 			console.log("ERROR: failed to find best path for upgrader spots")
@@ -351,10 +450,7 @@ class RoomData
 					continue
 				if(x == x0 && y == y0)
 					continue
-				
-				var tile = this.get_terrain(x, y)
-				var spot = callback(tile, x, y)
-				this.set_spot(x,y, spot)
+				callback( x, y)
 			}
 		}
 	}
@@ -499,9 +595,15 @@ Room.prototype.get_tech_tier = function()
 	
 	/// There is no creep to feed the spawn, so 
 	if(!capabilities.feed_spawn)
-		capacity = this.energyAvailable
-	if(!capabilities.miner)
-		capacity = this.energyAvailable
+	{
+		//console.log("No units of role feed_spawn. Limiting capacity")
+		capacity = Math.max(this.energyAvailable, 300)
+	}
+	if(!capabilities.mine)
+	{
+		//console.log("No units of role miner. Limiting capacity")
+		capacity = Math.max(this.energyAvailable, 300)
+	}
 	
 	/// TODO: check whether the room has 'mover' capability
 	/// effectively making its energy capped at 300 corresponding to t1
@@ -509,9 +611,15 @@ Room.prototype.get_tech_tier = function()
 	
 	for(var i = 0; i < tiers.length; i++)
 	{
-		if((tiers[i] + 300) <= capacity)
+		var limit = (tiers[i] + 300)
+		if( limit <= capacity)
 		{
-			tier = i+1
+			tier = 1+i
+			//console.log("Picking tier = " + tier)
+		}
+		else
+		{
+			//console.log("ntier = " + i + " is over current capacity=" + capacity + " with limit=" + limit)
 		}
 	}
 	

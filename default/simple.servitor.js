@@ -214,7 +214,7 @@ Flag.prototype.total_reserved = function(creep)
 	{
 		if(creep && id == creep.id)
 			return
-		console.log("Adding reservation " + id + "=" + JSON.stringify(info))
+		//console.log("Adding reservation " + id + "=" + JSON.stringify(info))
 		result += info.amount
 	})
 	return result
@@ -263,6 +263,8 @@ Creep.prototype.servitor_transfer_creep = function(obj)
 function filter_structures(obj)
 {
 	var t = obj.structureType;
+	if(!obj.isActive())	/// It takes 'Average' CPU
+		return false
 	return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN || t == STRUCTURE_TOWER) && 
 	//return (t == STRUCTURE_EXTENSION || t == STRUCTURE_SPAWN) &&
 		obj.energy < obj.energyCapacity;
@@ -284,7 +286,7 @@ function filter_creep_take(obj)
 			reserved += reserve.amount
 		}
 		
-		console.log("GIVE target " + obj.name + " reserved=" + reserved + "" + JSON.stringify(give.reserve))
+		//console.log("GIVE target " + obj.name + " reserved=" + reserved + "" + JSON.stringify(give.reserve))
 		return give.amount > reserved
 	}
 	
@@ -374,7 +376,7 @@ function process_move_get(creep)
     	{
     		if(flag.memory.type != "servitor" || flag.memory.role != 'take')
     			return false
-    		console.log("consider TAKE " + flag.name + " reserved=" + flag.total_reserved() + " stored=" + flag.total_stored() + " " + JSON.stringify(flag.memory))
+    		//console.log("consider TAKE " + flag.name + " reserved=" + flag.total_reserved() + " stored=" + flag.total_stored() + " " + JSON.stringify(flag.memory))
     		return flag.total_reserved(creep) < flag.total_stored()
     	}
     	
@@ -398,16 +400,18 @@ function process_move_get(creep)
     		creep.clear_target()
     		return false
     	}
-    	console.log(creep.name + " moveget moving to GIVE flag " + obj.name );
+    	//console.log(creep.name + " moveget moving to GIVE flag " + obj.name );
     	/// Check if target is dropped rez
     	if(creep.pos.getRangeTo(obj) <= 1)
     	{
-    		console.log(creep.name + " picking task flag" + obj.name );
+    		//console.log(creep.name + " picking task flag" + obj.name );
+    		creep.say("Pi"+ obj.name)
     		obj.pick_task_flag(creep)
     	}
     	else
     	{
-    		console.log(creep.name + " moving closer" + obj.name );
+    		//console.log(creep.name + " moving closer" + obj.name );
+    		creep.say("Closer")
     		creep.moveTo(obj)
     	}
     }

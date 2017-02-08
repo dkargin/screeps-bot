@@ -29,7 +29,7 @@ function process_job(creep)
 	
 	if(!creep.has_target())
 	{
-		console.log(creep.name + " finding closest build target")
+		//console.log(creep.name + " finding closest build target")
 		if(creep.find_closest_target(FIND_CONSTRUCTION_SITES, filter_build_targets, 'build'))
 		{
 			console.log("Found build target")
@@ -40,7 +40,7 @@ function process_job(creep)
 		}
 		else
 		{
-			console.log("No build target is available")
+			//console.log("No build target is available")
 		}
 	}
 	else

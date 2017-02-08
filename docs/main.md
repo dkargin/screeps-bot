@@ -4,6 +4,7 @@
 	- find best location for logistics center:
 		- calculate distance map for each logistic object
 		- pick a point with least sum of a distances
+		- skip occupied slots
 	- mark rail spots from logistics center
 	- calculate upgrader spots
 1. population management. Tier upgrades and creep renewal

@@ -27,37 +27,6 @@ var run_tower = function(tower)
     }
 }
 
-global.loadVisual = function(){
-  return console.log('<script>' + 
-    'if(!window.visualLoaded){' + 
-    '  $.getScript("https://screepers.github.io/screeps-visual/src/visual.screeps.user.js");' + 
-    '  window.visualLoaded = true;' + 
-    '}</script>')
-}
-
-function visualizePaths(){
-  let Visual = require('visual')
-  let colors = []      
-  let COLOR_BLACK = colors.push('#000000') - 1
-  let COLOR_PATH = colors.push('rgba(255,255,255,0.5)') - 1
-  _.each(Game.rooms,(room,name)=>{
-    let visual = new Visual(name)
-    visual.defineColors(colors)
-    visual.setLineWidth = 0.5
-    _.each(Game.creeps,creep=>{
-      if(creep.room != room) return
-      let mem = creep.memory
-      if(mem._move){
-        let path = Room.deserializePath(mem._move.path)
-        if(path.length){
-          visual.drawLine(path.map(p=>([p.x,p.y])),COLOR_PATH,{ lineWidth: 0.1 })
-        }
-      }
-    })
-    visual.commit()
-  })
-}
-
 /**
  * Run landscape updating process. Can take several turns to complete
  */
@@ -84,7 +53,9 @@ global.remove_flags = function()
 {
 	for(var f in Game.flags)
 	{
-		Game.flags[f].remove()
+        var flag = Game.flags[f]
+        if(!flag.role)
+		  Game.flags[f].remove()
 	}
 }
 
@@ -139,7 +110,6 @@ module.exports.loop = function() { profiler.wrap(function ()
 	if(firstTick)
     {
 		Game.profiler.background()
-		loadVisual()
         firstTick = false;
 		
         console.log("<b> ====================== Script has restarted at tick " + Game.time + " =================</b>")

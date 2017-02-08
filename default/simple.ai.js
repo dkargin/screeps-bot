@@ -17,6 +17,16 @@ var simpleBehaviours =
 }
 
 var firstTick = true
+
+global.enable_simpleai = function()
+{
+	Memory['simple.ai'] = true
+}
+
+global.disable_simpleai = function()
+{
+	Memory['simple.ai'] = false
+}
  
 function simple_ai()
 {
@@ -122,7 +132,7 @@ function simple_ai()
 				}
 				else
 				{
-				    console.log("Failed to spawn " + name + "=" + desc.body + " : "+result)
+				    //console.log("Failed to spawn " + name + "=" + desc.body + " : "+result)
 				}
 			}
 		}

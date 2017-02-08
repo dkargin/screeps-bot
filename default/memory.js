@@ -101,5 +101,12 @@ module.exports = {
 			if(!obj)
 				delete Memory._storages[i]
 		}
+
+        for(var i in Memory.flags)
+        {
+            var flag = Game.flags[i]
+            if(!flag)
+                delete Memory.flags[i]
+        }
 	}
 };
