@@ -25,7 +25,7 @@ const SPOT_ROAD = 9
 /// Versions for data storage
 const ROOM_DATA_VERSION = 1
 const ROOM_DATA_TERRAIN_VERSION = 1
-const ROOM_DATA_MINES_VERSION = 2
+const ROOM_DATA_MINES_VERSION = 3
 
 /// Ring of 8 points around center at [0, 0]
 const contour_1 = [[1, 0], 
@@ -214,7 +214,7 @@ class RoomData
 	}
 	
 	/// Occupies map cells for specified mine
-	draw_mine_spots(mine, info)
+	place_mine_spots(mine, info)
 	{
 		/// Get room center position
 		var cpos = this.get_logistics_center(info)
@@ -234,10 +234,10 @@ class RoomData
 			var finish = path[path.length-2];
 			
 			mine.spot = [finish.x, finish.y]
-			
-			var fname = "MSpot"+coords2str(...mine.spot)
-			
-			this.room.createFlag(...mine.spot, fname, COLOR_RED)
+			//var fname = "MSpot"+coords2str(...mine.spot)
+			//this.room.createFlag(...mine.spot, fname, COLOR_RED)
+
+			this.set_spot(...mine.spot, SPOT_MINE_CHEST)
 			
 			mine.distance_min = path.length
 			mine.distance = this.effecive_path_length(path)
@@ -283,7 +283,7 @@ class RoomData
 		for(var m in info.mines)
 		{
 			yield "calculating path to mine " + m
-			this.draw_mine_spots(info.mines[m], info)
+			this.place_mine_spots(info.mines[m], info)
 		}
 
 		info.mine_version = ROOM_DATA_MINES_VERSION
@@ -291,7 +291,7 @@ class RoomData
 		console.log("mine spots calculation is complete, ver=" + info.mine_version)
 	}
 	
-	draw_upgrader_spots(info)
+	place_upgrader_slots(info)
 	{
 		var info = this.get_info()
 		var centerPos = new RoomPosition(info.center[0], info.center[1], this.name)
@@ -313,7 +313,6 @@ class RoomData
 	/// Finds best position for upgrader chest
 	find_best_upgrader_spot(info)
 	{
-//
 		var uspots = []
 		/// 1. Search for the best upgrader spot
 		for(var i in contour_2)
@@ -372,6 +371,7 @@ class RoomData
 		/// TODO: calculate proper logistics center using wave distance generator
 		return [25, 25]
 	}
+	
 	/// Read terrain and generate proper spots
 	*map_analyser()
 	{	
@@ -390,16 +390,13 @@ class RoomData
 		/**
 		 * Need best spot for chest:
 		 * 	- no adjacent positions are mine spots
-		 * Ищем спот по кольцу на расстоянии 2, в котором:
-		 * 1. Влезает сундук
-		 * 2. Максимальное количество доступных мест вокруг сундука. 8 шт
-		 * 3. Меньшее расстояние до логистического центра
 		 */ 
 		var closest = this.find_best_upgrader_spot(info)
 		if(closest)
 		{
 			this.room.createFlag(closest.x,closest.y, "UChest")
 			info.uspot = [closest.x, closest.y]
+			this.set_spot(...info.uspot, SPOT_UPGRADE_CHEST)
 		}
 
 		var cpos = this.get_logistics_center(info)
@@ -419,6 +416,28 @@ class RoomData
 		/// 4. Draw upgrader spots
 		
 		yield "Generating upgrader spots"
+	}
+
+	/// Draw room visuals
+	draw_room_info()
+	{
+		var vis = this.room.visual
+		for(var y = 0; y < 49; y++)
+		{
+			for(var x = 0; x < 49; x++)
+			{
+				var spot = this.get_spot(x,y)
+				switch(spot)
+				{
+					case SPOT_ROAD: vis.text("R", x,y); break;
+					case SPOT_MINE: vis.text("m", x,y); break;
+					case SPOT_MINE_CHEST: vis.text("M", x,y); break;
+					case SPOT_UPGRADE: vis.text("u", x,y); break;
+					case SPOT_UPGRADE_CHEST: vis.text("U", x,y); break;
+				}
+				
+			}
+		}
 	}
 	
 	/**
@@ -776,7 +795,7 @@ var Utils = {
     	if(!Database[name])
     		Database[name] = new RoomData(name)
     	return Database[name]
-    },	
+    },
 }
 
 module.exports = Utils;

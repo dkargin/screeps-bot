@@ -42,7 +42,20 @@ var update_landscape = function*(context)
     }
 }
 
+function draw_room_data()
+{
+    for(var r in Game.rooms)
+    {
+        var room = Game.rooms[r]
+        console.log("Analysing room " + r)
+        
+        var rdata = RUtils.get_room_data(r)
+        rdata.draw_room_info()
+    }   
+}
+
 var analyser
+var analyserComplete = false
 
 global.start_test = function()
 {
@@ -123,14 +136,19 @@ module.exports.loop = function() { profiler.wrap(function ()
 		//remove_flags()
 	}
 	
-	if(analyser)
-	{
-		var y = analyser.next()
-		if(y.done)
-			analyser = undefined
-		console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )
-		profiler.output()
-	}
+    if(Memory.test_mode && analyser)
+    {
+        if(!analyserComplete)
+        {
+            var y = analyser.next()
+            if(y.done)
+                analyserComplete = true
+            console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )
+        }
+        //else
+         //   draw_room_data()
+    }
+	
 		
     SimpleAI.run()
     
