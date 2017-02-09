@@ -85,7 +85,6 @@ function process_returning(creep)
 	return false
 }
 
-
 module.exports = new class extends CreepBase.Behaviour 
 {
 	role()

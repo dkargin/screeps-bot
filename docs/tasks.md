@@ -58,3 +58,14 @@ Creep.prototype.process_async = function()
 creep.async_move = function * (target)
 {
 }
+
+
+# Notable threads #
+
+Per-room tasks:
+	- check_room_tasks - checks whether room logistic tasks are valid
+	- control_towers - control room towers
+
+Global tasks:
+	- check_memory - collect garbage
+	- 

@@ -1,8 +1,16 @@
 const profiler = require('screeps-profiler');
 //This line monkey patches the global prototypes.
-profiler.enable();
 
-var memoryUtils = require('memory')
+try
+{
+    require('memory')
+}
+catch(ex)
+{
+    console.log('Error importing memory module')
+}
+
+//var memoryUtils = require('memory')
 var RUtils = require('utils.room')
 var Corps = require('corporation')
 var Threads = require('threads')
@@ -27,12 +35,105 @@ var run_tower = function(tower)
     }
 }
 
+/// We do thread testing for this
+var test_thread = function *(arg1, arg2)
+{
+    var name = "noname"
+    if(this && this.name)
+        name = this.name
+    console.log("Entered thread " + name)
+    yield "Stop at step 1"
+    console.log("Doing step2 with arg="+arg1 + " arg2="+arg2)
+    yield "Stop at step 2"
+    return "Complete"
+}
+
+/// Active threads
+/// Maps PID to actual generator
+brain.threads = {}
+
+/// Thread context
+class Context
+{
+    constructor(generator, path, opts)
+    {
+        this.generator = generator
+        this.priority = opts.priority || 10
+        this.path = path
+    }
+
+    /// Calculates current thread priority
+    current_priority()
+    {
+        return this.priority + this.priority_offset
+    }
+
+    spin_once()
+    {
+        var result = this.generator.next()
+        return result.done
+    }
+}
+
+/// Finds thread by name or pid
+brain.find_thread = function(name_or_pid)
+{
+    /// TODO: implement
+}
+
+
+/// Update all threads
+brain.update_threads = function()
+{
+    /// List of threads to be run
+    var spawn = []
+    /// 1. Fill in thread spawn
+    for(var t in brain.threads)
+    {
+        spawn.push(brain.threads[t])
+    }
+
+    /// 2. Sort threads using local priority
+    spawn.sort((thread) => thread.current_priority())
+    /// 3. Run thread spawn until CPU is exausted
+    for(var t in spawn)
+    {
+        var thread = spawn[t]
+        thread.spin_once()
+    }
+}
+/*
+thread info
+- last update tick
+- 
+*/
+/// Creates thread from generator and specified path
+brain.create_thread = function(generator, path, opts = {})
+{
+    /// opts.priority = number
+    /// opts.restart = 
+
+    /// 1. Generate new pid
+}
+
 /**
  * Run landscape updating process. Can take several turns to complete
  */
 var update_landscape = function*(context)
 {
 	for(var r in Game.rooms)
+    {
+        var room = Game.rooms[r]
+        console.log("Analysing room " + r)
+        
+        var rdata = RUtils.get_room_data(r)
+        yield *rdata.map_analyser() 
+    }
+}
+
+function update_landscape2()
+{
+    for(var r in Game.rooms)
     {
         var room = Game.rooms[r]
         console.log("Analysing room " + r)
@@ -56,7 +157,7 @@ var analyserComplete = false
 
 global.start_test = function()
 {
-	Memory.test_mode = true
+	Memory.settings.test_mode = true
     analyserComplete = false
     analyser = update_landscape()
     Game.profiler.profile(3)
@@ -93,6 +194,11 @@ global.remove_debug = function()
 	remove_sites()
 }
 
+function* tower_updater(room)
+{
+
+}
+
 var towers = {}
 
 /**
@@ -121,65 +227,82 @@ function process_towers()
 
 var firstTick = true
 
+profiler.enable();
+
 module.exports.loop = function() { profiler.wrap(function () 
 {   
-	if(firstTick)
-    {
-		//Game.profiler.background()
-        firstTick = false;
-		
-        console.log("<b> ====================== Script has restarted at tick " + Game.time + " =================</b>")
 
-        var tower_updaters = []   
+    /// Skip a tick if we have CPU problems
+    if (Game.cpu.bucket < Game.cpu.tickLimit) {
+        console.log('Skipping tick ' + Game.time + ' due to lack of CPU.');
+        return;
     }
 
-    //process_towers()
-	/*
-    if(analyser)
-    {
-        var y = analyser.next()
-        if(y.done)
+    try
+    {    
+    	if(firstTick)
         {
-            delete analyser
+    		Game.profiler.background()
+            brain.memory_init()
+            firstTick = false;
+    		
+            console.log("<b> ====================== Script has restarted at tick " + Game.time + " =================</b>")
+
+            brain.create_thread(tower_updater, 'towers')
         }
-        console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )   
-    }*/
+        
+        Game.profiler.stream(10)
 
-    //draw_room_data()
-	
-		
-    SimpleAI.run()
-    
-    //Corps.update()
-    
-    for(var s in Game.spawns)
-    {
-        var spawn = Game.spawns[s]    
-
-        /*
-        if(!spawn.spawning)
+        //process_towers()
+    	
+        if(analyser)
         {
-            var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1, {filter:function (obj) {return obj.ticksToLive < 400}})
-            
-            if(targets.length > 0)
+            var y = analyser.next()
+            if(y.done)
             {
-                for(var i in targets)
-                    spawn.renewCreep(targets[i])
+                analyser = undefined
             }
-        }*/
-    }
+            console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )   
+        }
 
-    
-    
-    var used = Game.cpu.getUsed() 
-    if(used > 10)
-    {
-    	console.log("WARNING: CPU spike=" + used + " detected at tick " + Game.time)
-    	//Game.profiler.output();
+        draw_room_data()
+    	
+        SimpleAI.run()
+        
+        //Corps.update()
+        
+        for(var s in Game.spawns)
+        {
+            var spawn = Game.spawns[s]    
+
+            /*
+            if(!spawn.spawning)
+            {
+                var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1, {filter:function (obj) {return obj.ticksToLive < 400}})
+                
+                if(targets.length > 0)
+                {
+                    for(var i in targets)
+                        spawn.renewCreep(targets[i])
+                }
+            }*/
+        }
+
+        
+        
+        var used = Game.cpu.getUsed() 
+        if(used > 10)
+        {
+        	console.log("WARNING: CPU spike=" + used + " detected at tick " + Game.time)
+        	Game.profiler.output();
+        }
+
+        brain.memory_clean()
     }
-    else
+    catch(ex)
     {
-        //memoryUtils.clean_memory()    
+        console.log("EXCEPTION: main loop got exception: " + ex)
+        console.log("stack: " + ex.stack)
     }
     //build(spawn, STRUCTURE_EXTENSION);
 });

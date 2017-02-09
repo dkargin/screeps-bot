@@ -36,6 +36,7 @@ function simple_ai()
 	var population = {}
 	
 	simpleBehaviours["simple.servitor"].check_tasks()
+	
 	for(var r in Game.rooms)
 	{
 		population[r] = {}
