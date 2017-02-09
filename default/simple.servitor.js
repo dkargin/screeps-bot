@@ -56,16 +56,16 @@ Room.prototype.servitor_take = function(pos, amount)
 /// @obj wants delivery
 /// @amount - number of res to be delivered
 /// @time - time of the delivery
-Room.prototype.servitor_give = function(obj, amount, time)
+Room.prototype.servitor_give = function(obj, amount, time, tag = "")
 {
 	/// Ensure table exists
 	Memory.servitor_give = Memory.servitor_give || {}
 	if(!(Memory.servitor_give[obj.id]))
 	{
-		console.log("===> Servitor Give " + obj.name + " amount="+amount)
+		//console.log("===> Servitor Give " + obj.name + " amount="+amount)
 	}
 	
-	Memory.servitor_give[obj.id] = Memory.servitor_give[obj.id] || {amount : amount, time: time, reserve : {}}
+	Memory.servitor_give[obj.id] = Memory.servitor_give[obj.id] || {amount : amount, time: time, reserve : {}, tag : tag}
 }
 
 /**
@@ -98,16 +98,25 @@ Flag.prototype.get_flag_res = function()
 
 Flag.prototype.update_task = function(force)
 {
-	//console.log("Updating task flag=" + this.name)
 	var tick = Game.tick
 	/// Update flag status every 10 ticks
 	if(!this.memory.time || (tick - this.memory.time) > 10 || force)
 	{
+		
 		var drop = this.pos.lookFor(LOOK_RESOURCES)
 		if(drop.length > 0)
 			this.memory.drop = drop[0].id
 		
 		var flag = this
+
+		/// Remove dead objects from the reservation
+		for(var i in this.memory.reserve)
+		{
+			if(!Game.getObjectById(i))
+			{
+				delete this.memory.reserve[i]
+			}
+		}
 			
 		_.forEach(this.pos.lookFor(LOOK_STRUCTURES), function(obj)
 		{
@@ -116,6 +125,12 @@ Flag.prototype.update_task = function(force)
 				flag.memory.container = obj.id
 			}
 		})
+
+		//console.log("Updated task flag=" + this.name + " amount="+this.total_stored() + " reserve="+this.total_reserved())
+	}
+	else
+	{
+
 	}
 }
 
@@ -124,7 +139,7 @@ Flag.prototype.reserve_task_flag = function(creep, amount = 0)
 	if(!amount)
 		amount = creep.carryCapacity - creep.carry.energy
 		
-	console.log(creep.name + " reserves TAKE flag at " + this.pos + " amount="+ amount)
+	//console.log(creep.name + " reserves TAKE flag at " + this.pos + " amount="+ amount)
 	
 	this.memory.reserve = this.memory.reserve || {}
 	this.memory.reserve[creep.id] = 
@@ -329,7 +344,7 @@ function process_find_put(creep)
 		if( creep.find_closest_target(FIND_STRUCTURES, filter_structures, 'give_structure'))
 		{
 			var obj = Game.getObjectById(creep.memory.target)
-			console.log(creep.name + " transfering res to structure at " + obj.pos)
+			creep.log("transfering res to structure at " + obj.pos)
 		}
 		else if(creep.find_closest_target(FIND_MY_CREEPS, filter_creep_take, 'give_creep'))
 		{
@@ -339,11 +354,11 @@ function process_find_put(creep)
 			var name = "unknown"
 			if(obj.name)
 				name = obj.name
-			console.log(creep.name + " transfering res to object " + name + " at " + obj.pos)
+			creep.log("transfering res to object " + name + " at " + obj.pos)
 		}
 		else
 		{
-			console.log(creep.name + " failed to find any GIVE target")
+			creep.log("failed to find any GIVE target")
 		}
 	}
 	
@@ -388,7 +403,7 @@ function process_move_get(creep)
     	}
     	else
     	{
-    		console.log("No GIVE flag is found")
+    		creep.log("No GIVE flag is found")
     	}
     }
     
@@ -446,11 +461,11 @@ function process_move_put(creep)
 				creep.moveTo(object); 
 				break;
 			case ERR_FULL:
-				console.log(creep.name + " destination is full")
+				creep.log("destination is full")
 				clear_target = true
 				break
 			case ERR_INVALID_TARGET:
-				console.log(creep.name + " PUT target is invalid")
+				creep.log("PUT target is invalid")
 				clear_target = true
 				break
 			}

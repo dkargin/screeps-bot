@@ -24,8 +24,8 @@ const SPOT_ROAD = 9
 
 /// Versions for data storage
 const ROOM_DATA_VERSION = 1
-const ROOM_DATA_TERRAIN_VERSION = 1
-const ROOM_DATA_MINES_VERSION = 3
+const ROOM_DATA_TERRAIN_VERSION = 2
+const ROOM_DATA_MINES_VERSION = 4
 
 /// Ring of 8 points around center at [0, 0]
 const contour_1 = [[1, 0], 
@@ -68,11 +68,11 @@ class RoomData
 	constructor(name)
 	{
 		this.name = name
-		Memory.room_data = Memory.room_data || {}
+		Memory.rooms = Memory.rooms || {}
 		
-		Memory.room_data[this.name] = Memory.room_data[this.name] || {}
+		Memory.rooms[this.name] = Memory.rooms[this.name] || {}
 		
-		var info = Memory.room_data[this.name]
+		var info = Memory.rooms[this.name]
 		
 		this.room = Game.rooms[this.name]
 		var def = {
@@ -82,14 +82,21 @@ class RoomData
 		}
 		_.defaults(info, def)
 		
+		/*
 		if(!info.terrain || !info.terrain.length)
 			info.terrain = new Array(50*50)
 
 		if(!info.spots || !info.spots.length)
 			info.spots = new Array(50*50) 
+		*/
+		var lim = 50*50
+		this.terrain = new Array(lim)
+		for(var i = 0; i < lim; i++)
+			this.terrain[i] = 0
+		this.spots = new Array(lim)
+		for(var i = 0; i < lim; i++)
+			this.spots[i] = 0
 
-		this.terrain = info.terrain
-		this.spots = info.spots
 		this.structures = this.structures || []
 	}
 	
@@ -100,7 +107,59 @@ class RoomData
 	{
 		return Memory.room_data[this.name]
 	}
-	
+
+	serializeArray(data)
+	{
+		var data = ""
+		for(var y = 0; y < 50; y++)
+		{
+			//var row="00000000000000000000000000000000000000000000000000\n"
+			var row = ""
+			for(var x = 0; x < 50; x++)
+			{
+				//row[x] = data[x + y*50]
+				row = row + data[x+y*50]
+			}
+			data = data + row
+		}
+		return data
+	}	
+
+	deserializeArray(raw_data)
+	{
+		var rows = raw_data.split('\n')
+		if(rows.length < 50)
+		{
+			console.log("ERROR: cannot deserialize data")
+			return
+		}
+		var result = new Array(50*50)
+		for(var y = 0; y < 50; y++)
+		{
+			var row = rows[y]
+			var lim = Math.min(50, row.length)
+			for(var x = 0; x < lim; x++)
+				result[i++] = row[x]
+		}
+		return result
+	}
+
+	/// Save bulk data to persistent memory
+	save_memory()
+	{
+		var info = this.get_info()
+		info.terrain_raw = this.serializeArray(this.terrain)
+		info.spots_raw = this.serializeArray(this.spots)
+	}
+
+	load_memory()
+	{
+		var info = this.get_info()
+		if(info.terrain_raw)
+			this.terrain = this.deserializeArray(info.terrain_raw)
+		if(info.spots_raw)
+			this.terrain = this.deserializeArray(info.terrain_raw)
+	}
 	/**
 	 * Check whether room is available for scanning
 	 */
@@ -129,7 +188,15 @@ class RoomData
 
 	set_spot(x,y, s)
 	{
+		console.log("Setting spot pos="+x+":" + y + " to=" + s)
 		this.spots[x+y*50] = s
+	}
+
+	clear_spots()
+	{
+		var len = this.spots.length
+		for(var i = 0; i < len; i++)
+			this.spots[i] = SPOT_FREE
 	}
 	
 	/**
@@ -199,10 +266,23 @@ class RoomData
 				progress:ctrl.progress,
 				total:ctrl.progressTotal
 			}
-		}
-		
+		}	
 		info.terrain_version = ROOM_DATA_TERRAIN_VERSION
 		console.log("Scanned room " + this.name + " terrain")
+	}
+
+
+	/// Calculates room logistics center
+	calc_logistics_center(info)
+	{
+		var objs=this.room.find(FIND_STRUCTURES, {filter: { structureType: STRUCTURE_STORAGE }})
+		if(objs.length > 0)
+		{
+			return [objs[0].pos.x, objs[0].pos.y]
+		}
+
+		/// TODO: calculate proper logistics center using wave distance generator
+		return [25, 25]
 	}
 
 	/// Get RoomPosition of logistics center
@@ -219,7 +299,7 @@ class RoomData
 		/// Get room center position
 		var cpos = this.get_logistics_center(info)
 		/// Get path to a mine
-		var path = cpos.findPathTo(this.room.getPositionAt(mine.x, mine.y), {ignoreCreeps:true})
+		var path = cpos.findPathTo(this.room.getPositionAt(mine.x, mine.y), {IgnoreCreeps:true})
 
 		/* TODO: 
 		Since we occupy spots near both mine and chest, there can be better 
@@ -234,14 +314,13 @@ class RoomData
 			var finish = path[path.length-2];
 			
 			mine.spot = [finish.x, finish.y]
-			//var fname = "MSpot"+coords2str(...mine.spot)
-			//this.room.createFlag(...mine.spot, fname, COLOR_RED)
-
-			this.set_spot(...mine.spot, SPOT_MINE_CHEST)
+			
+			this.set_spot(mine.spot[0], mine.spot[1], SPOT_MINE_CHEST)
 			
 			mine.distance_min = path.length
 			mine.distance = this.effecive_path_length(path)
 			mine.path_bin = Room.serializePath(path)
+			/// Draw road
 			for(var i = 0; i < path.length-3; i++)
 				this.set_spot(path[i].x, path[i].y, SPOT_ROAD)
 		}
@@ -279,6 +358,8 @@ class RoomData
 			console.log("Room " + this.name + " mine data is already calculated")
 			return
 		}
+
+		this.clear_spots()
 		
 		for(var m in info.mines)
 		{
@@ -358,32 +439,15 @@ class RoomData
 		var closest = centerPos.findClosestByPath(uspots, {IgnoreCreeps:true})
 		return closest
 	}
-
-	/// Calculates room logistics center
-	calc_logistics_center(info)
-	{
-		var objs=this.room.find(FIND_STRUCTURES, {filter: { structureType: STRUCTURE_STORAGE }})
-		if(objs.length > 0)
-		{
-			return [objs[0].pos.x, objs[0].pos.y]
-		}
-
-		/// TODO: calculate proper logistics center using wave distance generator
-		return [25, 25]
-	}
 	
 	/// Read terrain and generate proper spots
 	*map_analyser()
 	{	
 		this.read_terrain()
-	
-		yield "read_terrain"
-			
+		
 		var info = this.get_info()
 		
 		info.center = this.calc_logistics_center(info)
-		
-		this.room.createFlag(...info.center, "LCenter", COLOR_YELLOW)
 		
 		yield *this.process_mines(info)
 		
@@ -394,18 +458,20 @@ class RoomData
 		var closest = this.find_best_upgrader_spot(info)
 		if(closest)
 		{
-			this.room.createFlag(closest.x,closest.y, "UChest")
 			info.uspot = [closest.x, closest.y]
 			this.set_spot(...info.uspot, SPOT_UPGRADE_CHEST)
+			console.log("Upgrader spot=" + info.uspot)
 		}
 
 		var cpos = this.get_logistics_center(info)
 		/// Get path to a mine
-		var path = cpos.findPathTo(this.room.getPositionAt(closest.x, closest.y),{ignoreCreeps:true})
+		var path = cpos.findPathTo(this.room.getPositionAt(closest.x, closest.y),{IgnoreCreeps:true})
 		
 		if(path && path.length > 2)
 		{
-
+			/// Draw road
+			for(var i = 0; i < path.length-3; i++)
+				this.set_spot(path[i].x, path[i].y, SPOT_ROAD)
 		}
 		else
 		{
@@ -415,13 +481,16 @@ class RoomData
 		///		iterate through all contour points at distance = 2
 		/// 4. Draw upgrader spots
 		
-		yield "Generating upgrader spots"
+		yield "Saving memory"
+		this.save_memory()
 	}
 
 	/// Draw room visuals
 	draw_room_info()
 	{
+		//console.log("Drawing room " + this.room.name + " data")
 		var vis = this.room.visual
+		var stat = {}
 		for(var y = 0; y < 49; y++)
 		{
 			for(var x = 0; x < 49; x++)
@@ -429,15 +498,19 @@ class RoomData
 				var spot = this.get_spot(x,y)
 				switch(spot)
 				{
-					case SPOT_ROAD: vis.text("R", x,y); break;
+					case SPOT_ROAD: vis.text("+", x,y); break;
 					case SPOT_MINE: vis.text("m", x,y); break;
 					case SPOT_MINE_CHEST: vis.text("M", x,y); break;
 					case SPOT_UPGRADE: vis.text("u", x,y); break;
-					case SPOT_UPGRADE_CHEST: vis.text("U", x,y); break;
+					case SPOT_UPGRADE_CHEST: vis.text("C", x,y); break;
 				}
-				
+				if(stat[spot])
+					stat[spot]++
+				else
+					stat[spot] = 1
 			}
 		}
+		console.log("Room spot statistics: " + JSON.stringify(stat))
 	}
 	
 	/**
@@ -494,32 +567,8 @@ class RoomData
 		return true
 	}
 	
-	show_markers()
-	{
-		return
-		var room = Game.rooms[this.name]
-		if(!room)
-			return
-			
-		var info = this.get_info()
-		
-		for(var m in info.mines)
-		{
-			room.createFlag(m.x, m.y, "MSpot#"+name+"X"+m.x + "Y"+m.y)
-		}
-		
-		room.createFlag(m.x, m.y, "USpot#"+name+"X"+m.x + "Y"+m.y)
-	}
 }
 
-global.show_markers = function()
-{
-	for(var r in Database)
-	{
-		var data = Database[r]
-		data.show_markers()
-	}
-}
 /**
  * Lists free spots around this room position
  */

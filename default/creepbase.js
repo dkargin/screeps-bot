@@ -8,7 +8,12 @@ Creep.prototype.set_state = function(new_state)
 	}
 	this.memory.state = new_state
 	
-	console.log(this.name + ' switched state to ' + new_state)
+	//console.log(this.name + ' switched state to ' + new_state)
+}
+
+Creep.prototype.log = function(msg) 
+{
+
 }
 
 /// Get current state
@@ -168,7 +173,7 @@ Creep.prototype.process_fsm = function()
     	//
     //console.log("Processing " + this.name + " role=" + this.memory.role + " state=" + this.get_state())
     
-    for(var i = 0; i < 3; i++)
+    for(var i = 0; i < 1; i++)
     {
         if(!this.fsm_step())
         	break

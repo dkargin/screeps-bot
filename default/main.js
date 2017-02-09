@@ -46,9 +46,6 @@ function draw_room_data()
 {
     for(var r in Game.rooms)
     {
-        var room = Game.rooms[r]
-        console.log("Analysing room " + r)
-        
         var rdata = RUtils.get_room_data(r)
         rdata.draw_room_info()
     }   
@@ -60,6 +57,9 @@ var analyserComplete = false
 global.start_test = function()
 {
 	Memory.test_mode = true
+    analyserComplete = false
+    analyser = update_landscape()
+    Game.profiler.profile(3)
 }
 
 global.remove_flags = function()
@@ -67,7 +67,7 @@ global.remove_flags = function()
 	for(var f in Game.flags)
 	{
         var flag = Game.flags[f]
-        if(!flag.role)
+        if(!flag.memory.role)
 		  Game.flags[f].remove()
 	}
 }
@@ -100,20 +100,23 @@ var towers = {}
  * @param room - room to be processed
  * @returns
  */
-function * process_towers(room)
+function process_room_towers(room)
 {
-	towers = room.find(FIND_MY_STRUCTURES, {filter: {structureType: STRUCTURE_TOWER}});
-	yield "Ready"
+	var towers = room.find(FIND_MY_STRUCTURES, {filter: {structureType: STRUCTURE_TOWER}});
 	
-	while(true)
-	{
-		for(var r in towers)
-	    {        
-	        _.forEach(towers[r], run_tower)
-	    }
-		if(yield "Updated tick")
-			break
-	}
+	for(var r in towers)
+    {        
+        run_tower(towers[r])
+        //_.forEach(towers[r], )
+    }
+}
+
+function process_towers()
+{
+    for(var r in Game.rooms)
+    {
+        process_room_towers(Game.rooms[r])
+    }   
 }
 
 var firstTick = true
@@ -122,32 +125,27 @@ module.exports.loop = function() { profiler.wrap(function ()
 {   
 	if(firstTick)
     {
-		Game.profiler.background()
+		//Game.profiler.background()
         firstTick = false;
 		
         console.log("<b> ====================== Script has restarted at tick " + Game.time + " =================</b>")
 
         var tower_updaters = []   
     }
-	
-	if(Memory.test_mode && !analyser)
-	{
-		analyser = update_landscape()
-		//remove_flags()
-	}
-	
-    if(Memory.test_mode && analyser)
+
+    //process_towers()
+	/*
+    if(analyser)
     {
-        if(!analyserComplete)
+        var y = analyser.next()
+        if(y.done)
         {
-            var y = analyser.next()
-            if(y.done)
-                analyserComplete = true
-            console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )
+            delete analyser
         }
-        //else
-         //   draw_room_data()
-    }
+        console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )   
+    }*/
+
+    //draw_room_data()
 	
 		
     SimpleAI.run()
@@ -171,15 +169,18 @@ module.exports.loop = function() { profiler.wrap(function ()
         }*/
     }
 
-    memoryUtils.clean_memory()
     
-    /*
+    
     var used = Game.cpu.getUsed() 
     if(used > 10)
     {
     	console.log("WARNING: CPU spike=" + used + " detected at tick " + Game.time)
-    	Game.profiler.output(10);
-    }*/
+    	//Game.profiler.output();
+    }
+    else
+    {
+        //memoryUtils.clean_memory()    
+    }
     //build(spawn, STRUCTURE_EXTENSION);
 });
 }
