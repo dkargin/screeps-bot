@@ -543,3 +543,108 @@ testCorp.event3 = function(event, result)
 	console.log("Event3 result=" + Actions.resultToString(result))	
 }
 */
+
+
+/*
+ * General ideas:
+ * - Each thread spins once per game tick
+ * - If CPU is exausted, then some threads are preempted. Run queue is calculated based on thread priority
+ * - Effective priority = (ticks_from_last_update * priority)
+ * - Each thread has 'path', a string name, used to find thread's persistent memory
+ * - Thread can spawn 'children' threads. Their names are generated from parent path
+ * Thread types:
+ * - spinner. Spins once per tick
+ * - task. Does some calculation task
+ */
+
+
+/// Thread context
+/// Wraps some sort of generator
+class Context
+{
+    constructor(generator, path, opts)
+    {
+        this.generator = generator
+        this.priority = opts.priority || 10
+        this.path = path
+        /// Last updated tick
+        this.last_tick = Game.time
+    }
+
+    /// Calculates current thread priority
+    effective_priority(tick)
+    {
+        return this.priority * (tick - this.last_tick)
+    }
+    /// Check if thead is complete for current tick
+    complete(tick)
+    {
+        return this.last_tick == tick
+    }
+
+    /// Spin generator once
+    spin_once(tick)
+    {
+        var result = this.generator.next()
+        this.last_tick = tick
+        return result.done
+    }
+}
+
+/// Thread scheduler
+brain.scheduler = new class
+{
+    constructor()
+    {
+        this.tick_queue = []
+    }
+
+    update()
+    {
+
+    }
+}
+
+/// Finds thread by name or pid
+brain.find_thread = function(name_or_pid)
+{
+    /// TODO: implement
+}
+
+
+/// Update all threads
+brain.update_threads = function()
+{
+    var tick = Game.time
+    /// List of threads to be run
+    var spawn = []
+    /// 1. Fill in thread spawn
+    for(var t in brain.threads)
+    {
+        spawn.push(brain.threads[t])
+    }
+
+    /// 2. Sort threads using local priority
+    spawn.sort((thread) => thread.effective_priority(tick))
+
+    /// 3. Run thread spawn until CPU is exausted
+    for(var t in spawn)
+    {
+        var thread = spawn[t]
+        thread.spin_once(tick)
+        /// TODO: stop when CPU is exhausted
+    }
+}
+/*
+thread info
+- last update tick
+- 
+*/
+/// Creates thread from generator and specified path
+brain.create_thread = function(generator, path, opts = {})
+{
+    /// opts.priority = number
+    /// opts.restart = 
+
+    /// 1. Generate new pid
+}

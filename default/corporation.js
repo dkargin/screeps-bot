@@ -17,7 +17,22 @@ var Rooms = require("utils.room")
 brain.CorporationTypes = brain.CorporationTypes || {}
 
 /// Storage for corporation instances
-var Corporations = {}
+/// Maps room name to list of corporations
+brain.corporations = {}
+
+brain.Corp = {}
+
+/// List room corporations
+Room.prototype.list_corps = function()
+{
+    var corps = []
+    for(var c in brain.corporations[this.name])
+    {
+        corps.push(c)
+    }
+    console.log("Room " + this.name + " corporations=" + corps)
+    return corps
+}
 
 function check_alive(objects)
 {
@@ -34,14 +49,21 @@ function check_alive(objects)
 /// Base class for all corporations
 ///  - 'property' - a map of objects that company owns
 ///  - 'personnel' - corporation's personnel
-class Corporation 
+class Corporation
 {
-    constructor(name)
+    constructor(name, room)
     {
+        this.name = name
+        this.room = room
+
         /// Room personnel. Array of indices
         this.personnel = []
         /// Room property. Maps object role to object id
         this.property = {}
+
+        this.memory.room = room.name
+
+        this.memory.paused = this.memory.paused || true
 
         this.memory.personnel = this.memory.personnel || []
         this.memory.property = this.memory.property || {}
@@ -55,12 +77,28 @@ class Corporation
         {
             this.property[i] = Game.getObjectById(this.memory.property[i])
         }
+
+        /*
+        if(name in Corporations)
+        {
+            throw("Corporation " + name + " is already registered")
+        }*/
+        
+        /// Register corporation for specific room
+        brain.corporations[room.name] = brain.corporations[room.name] || {}
+        brain.corporations[room.name][name] = this
     }
 
     /// Print corp property to console
     print_property()
     {
 
+    }
+
+    /// Get room
+    get_room()
+    {
+        return Game.rooms[this.memory.room]
     }
 
     /// Serialize data to persistent memory
@@ -87,77 +125,23 @@ class Corporation
         /// TODO: iterate all property and personnal
         return expenses
     }
-}
 
-implant_memory(Corporation.prototype, '_corporations')
-
-class UpgradeCorp extends Corporation
-{
-    /// Initializes upgrade crom from a room reference
-    constructor(room)
-    {
-        this.personnel = {}
-        this.memory.personnel = this.memory.personnel || []
-
-        /// Load upgrader list from a memory
-        for(var i in this.memory.personnel)
-        {
-            this.personnel[i] = Game.getObjectById(i)
-        }
-        
-        this.controller = room.controller
-        /// TODO: find appropriate container
-        /// - also find designated container as well
-    }
-
-    /// Called when logistics center is moved to another location
-    /// We need to recalculate all the paths
-    set_logistics_center(center)
-    {
-
-    }
-
-  
-    update()
-    {
-        var population = 0;
-        for(var i in this.personnel)
-        {
-            var obj = this.personnel[i]
-        }
-        write_memory()
+    /// List available actions for specified state
+    list_ai_actions(state) {}
+    
+    /// Get current state for AI solver
+    current_state() 
+    { 
+        return {}
     }
 }
 
-/// Corporation that manages spawning process
-class SpawnCorp
-{
-    /// Initializes upgrade crom from a room reference
-    constructor(spawn)
-    {
-        this.personnel = {}
-        this.memory.personnel = this.memory.personnel || []
+implant_memory(Corporation.prototype, '_corporations', (obj)=>obj.name)
 
-        /// Load upgrader list from a memory
-        for(var i in this.memory.personnel)
-        {
-            this.personnel[i] = Game.getObjectById(i)
-        }
-        
-        this.controller = room.controller
-        /// TODO: find appropriate container
-        /// - also find designated container as well
-    }
-}
-
+brain.Corporation = Corporation
 
 module.exports = 
 {
-    /// Register corporation class
-    registerType : function(cls)
-    {
-        CorporationTypes[cls.name] = cls  
-    },
     /// Add corporation
     addCorp : function(corp)
     {
@@ -172,3 +156,26 @@ module.exports =
         }
     }
 };
+
+
+/*
+AI Advisor iterates all corporations for list of available actions and chooses the one with best overall metric
+
+list_ai_actions(state) - corporation should list its available actions
+
+state = 
+{
+    tier - room tier
+    harvest_rate - current harvest estimation
+    upgrade_rate - current upgrade rate
+}
+
+Upgrader Actions:
+    SpawnUpgrader = SpawnUnit(body, provides={upgrading: numbody, limited by state harvest rate and build distribution})
+    build chest = BuildStructure(chest)
+    build road = BuildStructure(road)
+
+Builder:
+    SpawnBuilder = SpawnUnit(body, provides={building: numbody})
+
+*/

@@ -29,10 +29,12 @@ brain.print_memory = function(path)
 }
 /// @param objects - array of object ids
 /// @returns array of objects that are still alive
-
 /// Implants 'memory' property to an object
-global.implant_memory = function(classname, location)
+global.implant_memory = function(classname, location, gid)
 {
+    if(!gid)
+        gid = (obj) => obj.id
+
     Object.defineProperty(classname, 'memory', {
         get: function() {
             if(_.isUndefined(Memory[location])) {
@@ -41,7 +43,7 @@ global.implant_memory = function(classname, location)
             if(!_.isObject(Memory[location])) {
                 return undefined;
             }
-            return Memory[location][this.id] = Memory[location][this.id] || {};
+            return Memory[location][gid(this)] = Memory[location][gid(this)] || {};
         },
         set: function(value) {
             if(_.isUndefined(Memory[location])) {
@@ -50,7 +52,7 @@ global.implant_memory = function(classname, location)
             if(!_.isObject(Memory[location])) {
                 throw new Error('Could not implant memory for class ' + classname.name);
             }
-           Memory[location][this.id] = value;
+           Memory[location][gid(this)] = value;
         }
     });
 }
@@ -79,29 +81,31 @@ global.implant_cache = function(classname, location)
         }
     });
 }
+/*
+Game.check_alive = function(objects)
+{
+    var alive = []
+    for(var i in objects)
+    {
+        var obj = Game.getObjectById(objects[i])
+        if(obj)
+            movers.push(ob)
+    }
+    return alive
+}*/
+
+implant_memory(Source.prototype, '_sources');
+implant_memory(StructureContainer.prototype, '_containers');
+implant_memory(StructureStorage.prototype, '_storages');
+
+implant_cache(Creep.prototype, '_creeps')
+implant_cache(Flag.prototype, '_flags')
 
 brain.memory_init = function()
 {
     console.log("Initializing BOT memory")
 
-    Game.check_alive = function(objects)
-    {
-        var alive = []
-        for(var i in objects)
-        {
-            var obj = Game.getObjectById(objects[i])
-            if(obj)
-                movers.push(ob)
-        }
-        return alive
-    }
-
-    implant_memory(Source.prototype, '_sources');
-    implant_memory(StructureContainer.prototype, '_containers');
-    implant_memory(StructureStorage.prototype, '_storages');
-
-    implant_cache(Creep.prototype, '_creeps')
-    implant_cache(Flag.prototype, '_flags')
+    
 
     brain.start_tick = Game.time
 /*

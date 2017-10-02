@@ -17,6 +17,39 @@ var Threads = require('threads')
 var HoP = require('spawner')
 var SimpleAI = require('simple.ai')
 
+/// Include corporation modules
+require('corporation')
+require('corp.spawn')
+require('corp.build')
+require('corp.upgrader')
+require('corp.mine')
+
+var start_tick = 0
+
+/// Initialize room corporations
+function init_room_corps(room)
+{
+    brain.corporations.init_tick = start_tick
+    /// Create corporation for each spawn
+    var spawns = room.find(FIND_MY_SPAWNS) || []
+    if(spawns.length > 0)
+    {
+        console.log("Creating SpawnCorp")
+        var spawnCorp = new brain.Corp.Spawn(room)
+    }
+
+    var buildCorp = new brain.Corp.Build(room)
+
+    var mines = room.find(FIND_SOURCES) || []
+    for(var i in mines)
+    {
+        console.log("Creating MineCorp for mine " + mines[i].pos)
+        var mineCorp = new brain.Corp.Mine(mines[i])
+    }
+
+    var upgradeCorp = new brain.Corp.Build(room)
+}
+
 var run_tower = function(tower)
 {
     //console.log("Updating tower "+ tower)
@@ -51,70 +84,6 @@ var test_thread = function *(arg1, arg2)
 /// Active threads
 /// Maps PID to actual generator
 brain.threads = {}
-
-/// Thread context
-class Context
-{
-    constructor(generator, path, opts)
-    {
-        this.generator = generator
-        this.priority = opts.priority || 10
-        this.path = path
-    }
-
-    /// Calculates current thread priority
-    current_priority()
-    {
-        return this.priority + this.priority_offset
-    }
-
-    spin_once()
-    {
-        var result = this.generator.next()
-        return result.done
-    }
-}
-
-/// Finds thread by name or pid
-brain.find_thread = function(name_or_pid)
-{
-    /// TODO: implement
-}
-
-
-/// Update all threads
-brain.update_threads = function()
-{
-    /// List of threads to be run
-    var spawn = []
-    /// 1. Fill in thread spawn
-    for(var t in brain.threads)
-    {
-        spawn.push(brain.threads[t])
-    }
-
-    /// 2. Sort threads using local priority
-    spawn.sort((thread) => thread.current_priority())
-    /// 3. Run thread spawn until CPU is exausted
-    for(var t in spawn)
-    {
-        var thread = spawn[t]
-        thread.spin_once()
-    }
-}
-/*
-thread info
-- last update tick
-- 
-*/
-/// Creates thread from generator and specified path
-brain.create_thread = function(generator, path, opts = {})
-{
-    /// opts.priority = number
-    /// opts.restart = 
-
-    /// 1. Generate new pid
-}
 
 /**
  * Run landscape updating process. Can take several turns to complete
@@ -244,6 +213,10 @@ module.exports.loop = function() { profiler.wrap(function ()
         {
     		Game.profiler.background()
             brain.memory_init()
+
+            for(var r in Game.rooms)
+                init_room_corps(Game.rooms[r])
+
             firstTick = false;
     		
             console.log("<b> ====================== Script has restarted at tick " + Game.time + " =================</b>")

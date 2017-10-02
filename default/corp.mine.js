@@ -1,35 +1,30 @@
-/// Mining corporation
 /** 
- * Mining corporation consists of:
+ * Mining corporation
+ * Corporation consists of:
  * - miner
  * - storage nearby the mine
+ * - specialised mover to deliver harvest
 **/
-class MineCorp extends Corporation
+brain.Corp.Mine = class extends brain.Corporation
 {
     constructor(mine)
     {
         var name = "MineCorp" + mine.id
-        super(name)
-        
-        Corporations[name] = this
-        
-        this.name = name
+        super(name, mine.room)
         
         this.memory.mine_id = mine.id
-        
-        this.memory.unload_id = unload_obj.id
+        //this.memory.unload_id = unload_obj.id
         // Identifier of drill creep
-        this.memory.drill = this.memory.drill || "" 
+        //this.memory.drill = this.memory.drill || "" 
         // Intermediate storage for a drill
-        this.memory.storage = this.memory.storage || ""
+        //this.memory.storage = this.memory.storage || ""
         // Array of mover creeps. They move res from drill/storage 
         // to destination storage
-        this.memory.movers = this.memory.movers || []
+        //this.memory.movers = this.memory.movers || []
         /// Arraty of simple workers. They do the stuff in first period of the game
         /// Later they are replaced by a drill creeps
-        this.memory.workers = this.memory.workers || []
+        //this.memory.workers = this.memory.workers || []
         /// Mine starts paused. Main manager decides when to activate specific mine
-        this.memory.paused = this.memory.paused || true
         /// Contains current storage state
         this.memory.storage = 0
         
@@ -83,12 +78,6 @@ class MineCorp extends Corporation
     get_mine()
     {
         return Game.getObjectById(this.memory.mine_id)
-    }
-    
-    /// Get room
-    get_room()
-    {
-        return this.get_mine().room
     }
     
     /// Get dat drill
@@ -259,9 +248,13 @@ class MineCorp extends Corporation
     update()
     {
         var name = this.corp_name()
+
         console.log("Corporation " + name + " is working hard")
         this.check_personnel()
+
         var room = this.get_room()
+
+        /*
         
         if(!this.memory.drill && !this.memory.drill_queued)
         {
@@ -295,40 +288,6 @@ class MineCorp extends Corporation
             }
             
             var res = room.enqueue(recipe, this.event(this.on_spawned_mover))
-        }
+        }*/
     }
 }
-
-function getCorpForMine(mine, center)
-{
-    if(mine.memory.corp)
-    {
-        var corp = Corporations[mine.memory.corp]
-        if(corp)
-            return corp
-    }
-    return new MineCorp(mine, center)
-}
-
-/** Will find and fill in mining spots **/
-/** @param (RoomPosition) pos - central position **/
-Room.prototype.analyse_mines=function(center)
-{
-    var pos = Game.getObjectPos(center)
-    //console.log("Updating mine info")
-    var sources = this.find(FIND_SOURCES);
-    //var pos = spawn.pos
-    
-    for(var i in sources)
-    {
-        var mine = sources[i]
-        
-        var corp = getCorpForMine(mine, center)
-            
-        mine.memory.corp = corp.name
-        
-        corp.analyse_mine()
-    }
-}
-
-brain.CorporationTypes.MineCorp = MineCorp;

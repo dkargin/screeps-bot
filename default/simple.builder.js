@@ -24,9 +24,14 @@ var Actions =
 	}
 }
 
+/// Mine resources
+function process_mine(creep)
+{
+
+}
+
 function process_job(creep)
 {
-	
 	if(!creep.has_target())
 	{
 		//console.log(creep.name + " finding closest build target")

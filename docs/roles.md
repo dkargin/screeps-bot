@@ -5,6 +5,26 @@ Upgrades controller structure. Does not like to move and asks servitors to bring
 needs: servitor, miner
 provides: controller_upgrader
 
+# Worker #
+
+body = WORK:1,CARRY:2,MOVE:2
+
+Does all the stuff until t2 and corporation development
+
+States:
+Mining - mines resources untill full. Skip mining if logistics center is available
+Feeding - feed spawn and extensions
+Building - build any available building. 
+Upgrading - upgrades controller. Skip upgrading if corporation is active
+
+Typical life:
+
+1. Mine something
+2. Do job:
+	- feed spawn
+	- build
+	- upgrade
+
 # servitor #
 
 Typical life:
