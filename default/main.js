@@ -1,28 +1,28 @@
-const profiler = require('screeps-profiler');
 //This line monkey patches the global prototypes.
 
 try
 {
-    require('memory')
+    require('system_memory')
 }
 catch(ex)
 {
-    console.log('Error importing memory module')
+    console.log('Error importing system_memory module')
 }
 
 //var memoryUtils = require('memory')
 var RUtils = require('utils.room')
 var Corps = require('corporation')
-var Threads = require('threads')
+var Threads = require('system_threads')
 var HoP = require('spawner')
 var SimpleAI = require('simple.ai')
 
 /// Include corporation modules
-require('corporation')
+/*
 require('corp.spawn')
 require('corp.build')
 require('corp.upgrader')
 require('corp.mine')
+*/
 
 var start_tick = 0
 
@@ -74,10 +74,13 @@ var test_thread = function *(arg1, arg2)
     var name = "noname"
     if(this && this.name)
         name = this.name
+
     console.log("Entered thread " + name)
-    yield "Stop at step 1"
+    yield OS.Break("Stop at step 1")
+
     console.log("Doing step2 with arg="+arg1 + " arg2="+arg2)
-    yield "Stop at step 2"
+    yield OS.Break("Stop at step 2")
+
     return "Complete"
 }
 
@@ -88,8 +91,10 @@ brain.threads = {}
 /**
  * Run landscape updating process. Can take several turns to complete
  */
-var update_landscape = function*(context)
+var update_landscape = function*()
 {
+    context = yield OS.GetContext;
+
 	for(var r in Game.rooms)
     {
         var room = Game.rooms[r]
@@ -124,43 +129,16 @@ function draw_room_data()
 var analyser
 var analyserComplete = false
 
+/*
+
+*/
+
 global.start_test = function()
 {
 	Memory.settings.test_mode = true
     analyserComplete = false
     analyser = update_landscape()
-    Game.profiler.profile(3)
-}
-
-global.remove_flags = function()
-{
-	for(var f in Game.flags)
-	{
-        var flag = Game.flags[f]
-        if(!flag.memory.role)
-		  Game.flags[f].remove()
-	}
-}
-
-global.remove_sites = function()
-{
-	for(var r in Game.rooms)
-	{
-		var room = Game.rooms[r]
-		
-		var sites = room.find(FIND_CONSTRUCTION_SITES)
-		for(var s in sites)
-		{
-			var site = sites[s]
-			site.remove()
-		}
-	}
-}
-
-global.remove_debug = function()
-{
-	remove_flags()
-	remove_sites()
+    //Game.profiler.profile(3)
 }
 
 function* tower_updater(room)
@@ -188,19 +166,22 @@ function process_room_towers(room)
 
 function process_towers()
 {
-    for(var r in Game.rooms)
+    while(true)
     {
-        process_room_towers(Game.rooms[r])
+        for(var r in Game.rooms)
+        {
+            process_room_towers(Game.rooms[r])
+        }
+        yield OS.NextTick()
     }   
 }
 
 var firstTick = true
 
-profiler.enable();
+//profiler.enable();
 
-module.exports.loop = function() { profiler.wrap(function () 
-{   
-
+module.exports.loop = function() 
+{ 
     /// Skip a tick if we have CPU problems
     if (Game.cpu.bucket < Game.cpu.tickLimit) {
         console.log('Skipping tick ' + Game.time + ' due to lack of CPU.');
@@ -211,7 +192,6 @@ module.exports.loop = function() { profiler.wrap(function ()
     {    
     	if(firstTick)
         {
-    		Game.profiler.background()
             brain.memory_init()
 
             for(var r in Game.rooms)
@@ -224,10 +204,6 @@ module.exports.loop = function() { profiler.wrap(function ()
             brain.create_thread(tower_updater, 'towers')
         }
         
-        Game.profiler.stream(10)
-
-        //process_towers()
-    	
         if(analyser)
         {
             var y = analyser.next()
@@ -267,7 +243,6 @@ module.exports.loop = function() { profiler.wrap(function ()
         if(used > 10)
         {
         	console.log("WARNING: CPU spike=" + used + " detected at tick " + Game.time)
-        	Game.profiler.output();
         }
 
         brain.memory_clean()
@@ -278,5 +253,4 @@ module.exports.loop = function() { profiler.wrap(function ()
         console.log("stack: " + ex.stack)
     }
     //build(spawn, STRUCTURE_EXTENSION);
-});
 }

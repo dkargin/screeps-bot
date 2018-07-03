@@ -36,3 +36,36 @@
 
 http://screeps.wikia.com/wiki/Globals
 
+first_tick = true
+main = function()
+{
+	if(first_tick)
+	{
+		OS.add_task(init_system);
+		first_tick = false;
+	}
+
+	OS.run();
+}
+
+# TODO #
+
+1. Make rough kernel structure. Move initialization to kernel routines
+2. Basic thread executer
+3. Make roomplan:
+	- Wave transform to get best storage position
+	- Lay paths to the best storage position
+	- Draw desired floor plan using new graphics
+	- Add buildings to roomplan
+	- Should be possible to query buidings from roomplan
+4. 
+
+
+
+# Room statuses #
+
+By economical use:
+0. CAPITAL. Highest room level, no need for external feeding?
+1. CITY. Full mining, high room level
+2. TOWN. Can pull resources from adjacent remote mines
+3. REMOTE_MINE. - remote mining installation. 

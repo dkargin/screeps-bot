@@ -648,3 +648,18 @@ brain.create_thread = function(generator, path, opts = {})
 
     /// 1. Generate new pid
 }
+
+
+/*
+
+Thread types:
+
+- single large task. Runs until it is complete. Such task can be 
+- event is called every tick
+
+
+CPU Management:
+
+1. Pick threads from lowest priority to highest
+
+*/

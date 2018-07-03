@@ -6,14 +6,17 @@
  * You can import it from another modules like this:
  * var mod = require('memory');
  * mod.thing == 'a thing'; // true
+
+ * Module contains memory utilities at system level
  */
 
-global.brain = global.brain || {}
+global.OS = global.OS || {}
 
 /// Init volatile cache
-_.defaults(brain, {
+_.defaults(OS, {
     threads : {},
-    cache:{
+    cache:
+    {
         rooms: {},
         corporations : {},
         creeps: {},
@@ -21,11 +24,11 @@ _.defaults(brain, {
     },
 })
 
-brain.print_memory = function(path)
+OS.print_memory = function(path)
 {
     var data = brain
     var str = JSON.stringify(str)
-    console.log("Brain data for path " + path + " = " + data)
+    console.log("OS data for path " + path + " = " + data)
 }
 /// @param objects - array of object ids
 /// @returns array of objects that are still alive

@@ -89,6 +89,38 @@ global.flat_distance = function(a,b)
 	return Math.max(dx, dy)
 }
 
+global.remove_flags = function()
+{
+	for(var f in Game.flags)
+	{
+        var flag = Game.flags[f]
+        if(!flag.memory.role)
+		  Game.flags[f].remove()
+	}
+}
+
+global.remove_sites = function()
+{
+	for(var r in Game.rooms)
+	{
+		var room = Game.rooms[r]
+		
+		var sites = room.find(FIND_CONSTRUCTION_SITES)
+		for(var s in sites)
+		{
+			var site = sites[s]
+			site.remove()
+		}
+	}
+}
+
+global.remove_debug = function()
+{
+	remove_flags()
+	remove_sites()
+}
+
+
 var Database = {}
 
 /**
