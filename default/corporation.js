@@ -7,7 +7,7 @@
  * mod.thing == 'a thing'; // true
  */
 
-require('memory')
+//require('memory')
  
 var Rooms = require("utils.room")
 //var Actions = require("threads")

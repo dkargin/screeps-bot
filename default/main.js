@@ -1,20 +1,14 @@
-//This line monkey patches the global prototypes.
+// This file should be entry point for OS, and initializer for all the processes
 
-try
-{
-    require('system_memory')
-}
-catch(ex)
-{
-    console.log('Error importing system_memory module')
-}
+require('OS')
 
-//var memoryUtils = require('memory')
+
 var RUtils = require('utils.room')
-var Corps = require('corporation')
-var Threads = require('system_threads')
-var HoP = require('spawner')
-var SimpleAI = require('simple.ai')
+
+// Disabled so far
+//var Corps = require('corporation')
+//var HoP = require('spawner')
+//var SimpleAI = require('simple.ai')
 
 /// Include corporation modules
 /*
@@ -49,44 +43,6 @@ function init_room_corps(room)
 
     var upgradeCorp = new brain.Corp.Build(room)
 }
-
-var run_tower = function(tower)
-{
-    //console.log("Updating tower "+ tower)
-    var closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-    if(closestHostile) {
-        tower.attack(closestHostile);
-    }
-    else
-    {
-        var closestDamagedStructure = tower.room.find(FIND_STRUCTURES, {
-            filter: (structure) => structure.hits < structure.hitsMax && structure.hits < 10000
-        });
-        if(closestDamagedStructure.length > 0) {
-            tower.repair(closestDamagedStructure[0]);
-        }
-    }
-}
-
-/// We do thread testing for this
-var test_thread = function *(arg1, arg2)
-{
-    var name = "noname"
-    if(this && this.name)
-        name = this.name
-
-    console.log("Entered thread " + name)
-    yield OS.Break("Stop at step 1")
-
-    console.log("Doing step2 with arg="+arg1 + " arg2="+arg2)
-    yield OS.Break("Stop at step 2")
-
-    return "Complete"
-}
-
-/// Active threads
-/// Maps PID to actual generator
-brain.threads = {}
 
 /**
  * Run landscape updating process. Can take several turns to complete
@@ -141,9 +97,22 @@ global.start_test = function()
     //Game.profiler.profile(3)
 }
 
-function* tower_updater(room)
+var run_tower = function(tower)
 {
-
+    //console.log("Updating tower "+ tower)
+    var closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+    if(closestHostile) {
+        tower.attack(closestHostile);
+    }
+    else
+    {
+        var closestDamagedStructure = tower.room.find(FIND_STRUCTURES, {
+            filter: (structure) => structure.hits < structure.hitsMax && structure.hits < 10000
+        });
+        if(closestDamagedStructure.length > 0) {
+            tower.repair(closestDamagedStructure[0]);
+        }
+    }
 }
 
 var towers = {}
@@ -164,7 +133,7 @@ function process_room_towers(room)
     }
 }
 
-function process_towers()
+function* process_towers()
 {
     while(true)
     {
@@ -172,85 +141,71 @@ function process_towers()
         {
             process_room_towers(Game.rooms[r])
         }
-        yield OS.NextTick()
-    }   
+        yield OS.break()
+    }
 }
 
-var firstTick = true
+function renew_creeps_near_spawn(spawn)
+{
+    if(spawn.spawning)
+        return;
+    var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1, {filter:function (obj) {return obj.ticksToLive < 400}})
+    
+    if(targets.length > 0)
+    {
+        for(var i in targets)
+            spawn.renewCreep(targets[i])
+    }
+}
 
-//profiler.enable();
+var game_loop = function()
+{
+    if(analyser)
+    {
+        var y = analyser.next()
+        if(y.done)
+        {
+            analyser = undefined
+        }
+        console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )   
+    }
+
+    draw_room_data()
+	
+    //SimpleAI.run()
+    
+    //Corps.update()
+    
+    // Spawn renewing
+    for(var s in Game.spawns)
+    {
+        var spawn = Game.spawns[s]    
+
+        if(!spawn.spawning)
+        {
+            var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1, {filter:function (obj) {return obj.ticksToLive < 400}})
+            
+            if(targets.length > 0)
+            {
+                for(var i in targets)
+                    spawn.renewCreep(targets[i])
+            }
+        }
+    }
+}
+
+// This function will be called on system startup
+// We should register all necessary threads and tasks here.
+// We will not visit this function until next restart.
+init_system = function()
+{
+    // This function will be executed infinetly, once per game tick
+    OS.create_loop(game_loop, "main")
+    OS.create_thread(tower_updater, 'towers')
+}
 
 module.exports.loop = function() 
 { 
-    /// Skip a tick if we have CPU problems
-    if (Game.cpu.bucket < Game.cpu.tickLimit) {
-        console.log('Skipping tick ' + Game.time + ' due to lack of CPU.');
-        return;
-    }
-
-    try
-    {    
-    	if(firstTick)
-        {
-            brain.memory_init()
-
-            for(var r in Game.rooms)
-                init_room_corps(Game.rooms[r])
-
-            firstTick = false;
-    		
-            console.log("<b> ====================== Script has restarted at tick " + Game.time + " =================</b>")
-
-            brain.create_thread(tower_updater, 'towers')
-        }
-        
-        if(analyser)
-        {
-            var y = analyser.next()
-            if(y.done)
-            {
-                analyser = undefined
-            }
-            console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )   
-        }
-
-        draw_room_data()
-    	
-        SimpleAI.run()
-        
-        //Corps.update()
-        
-        for(var s in Game.spawns)
-        {
-            var spawn = Game.spawns[s]    
-
-            /*
-            if(!spawn.spawning)
-            {
-                var targets = spawn.pos.findInRange(FIND_MY_CREEPS, 1, {filter:function (obj) {return obj.ticksToLive < 400}})
-                
-                if(targets.length > 0)
-                {
-                    for(var i in targets)
-                        spawn.renewCreep(targets[i])
-                }
-            }*/
-        }
-
-        
-        
-        var used = Game.cpu.getUsed() 
-        if(used > 10)
-        {
-        	console.log("WARNING: CPU spike=" + used + " detected at tick " + Game.time)
-        }
-
-        brain.memory_clean()
-    }
-    catch(ex)
-    {
-        console.log("EXCEPTION: main loop got exception: " + ex)
-        console.log("stack: " + ex.stack)
-    }
+    OS.default_run(init_system)
     //build(spawn, STRUCTURE_EXTENSION);
 }
