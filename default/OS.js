@@ -18,12 +18,25 @@ _.defaults(OS, {
     },
 })
 
+var thread_by_path = {}
+var thread_by_pid = {}
+var free_pids = []
+var last_pid = 1
+var firstTick = true
+
+// OS Sessing identifier. Incremented every new start
+// We use it for tracking some kernel objects, that are 
+// belonging to previous session.
+var current_session_id = 0
+
 OS.print_memory = function(path)
 {
     var data = brain
     var str = JSON.stringify(str)
     console.log("OS data for path " + path + " = " + data)
 }
+
+
 
 /// @param objects - array of object ids
 /// @returns array of objects that are still alive
@@ -107,6 +120,11 @@ function memory_init()
 {
     console.log("Initializing BOT memory")
 
+    _.defaults(Memory.os, {session_id: 0, last_start_tick: 0})
+    
+    Memory.os.session_id = Memory.os.session_id + 1
+    current_session_id = Memory.os.session_id
+    
     OS.start_tick = Game.time
     
     implant_memory(Source.prototype, '_sources');
@@ -222,6 +240,18 @@ OS.memory_clean = function()
  */
 
 
+/// System command.
+/// Every yield.OS should return this object
+class SysCommand
+{
+    constructor(command, args)
+    {
+        this.command = command
+        this.args = args
+    }
+}
+
+
 /// Thread context
 /// Wraps some sort of a generator
 class ThreadContext
@@ -256,11 +286,6 @@ class ThreadContext
         return result.done
     }
 }
-
-var thread_by_path = {}
-var thread_by_pid = {}
-var free_pids = []
-var last_pid = 1
 
 // OS.threads should contain map /path -> Context
 // Run scheduled threads
@@ -342,7 +367,7 @@ var ThreadType =
 }
 
 /// Action execution/check result
-OS.ThreadState = 
+var ThreadState = 
 {
     Active : 0,         // Action is still active
     Done: 1,            // Thread has exited/joined
@@ -352,6 +377,7 @@ OS.ThreadState =
     Rejected : 7,       // Action was rejected
 }
 
+
 /// Simplest generator of new PID
 function generate_new_pid()
 {
@@ -360,8 +386,27 @@ function generate_new_pid()
     return pid
 }
 
+function get_session_id()
+{
+    return current_session_id;
+}
+
+// Cleans up all references from the thread
+function remove_thread(thread)
+{
+    var path = thread.path
+    if (path && path in thread_by_path)
+        delete thread_by_path[path]
+        
+    var pid = thread.pid
+    if (pid && pid in thread_by_pid)
+        delete thread_by_pid[pid]
+        
+    // TODO: Remove it from current spawn
+}
+
 /// Creates thread from generator and specified path
-OS.create_thread = function(generator, path, opts = {})
+function create_thread_impl(generator, path, opts = {})
 {
     /// Path - 
     /// opts.priority = number
@@ -371,13 +416,23 @@ OS.create_thread = function(generator, path, opts = {})
     if(path in thread_by_path)
     {
         var prev_thread = thread_by_path[path]
-        console.log("WARNING: Thread \'" + path + "\' already exists ")
+        if (prev_thread.session_id == get_session_id())
+        {
+            console.log("WARNING: Thread \'" + path + "\' already exists ")
+            return 0
+        }
+        else
+        {
+            console.log("WARNING: Recycling thread \'" + path + "\' from the previous session ")
+            remove_thread(prev_thread)
+        }
     }
     
     /// 1. Generate new pid
     var pid = generate_new_pid()
     var tc = new ThreadContext(generator, path, opts)
     tc.pid = pid
+    tc.session_d = get_session_id()
     
     /// Registering thread
     thread_by_pid[pid] = tc
@@ -387,6 +442,20 @@ OS.create_thread = function(generator, path, opts = {})
     /// TODO: Maybe we should kick scheduler
     
     return pid
+}
+
+/// Not sure we need a separate enum, instead of a function
+var CommandType = 
+{
+    CreateThread: 1,
+    Sleep: 2,
+    Break: 3,
+}
+
+
+OS.create_thread = function(generator, path, opts = {})
+{
+    return new SysCommand(CommandType.CreateThread, [generator, path, opts])
 }
 
 OS.create_loop = function(fn, path, opts = {})
@@ -400,20 +469,23 @@ OS.create_loop = function(fn, path, opts = {})
     {
         fn()
     }
-    return this.create_thread(generator(), path, opts)
+    return OS.create_thread(generator(), path, opts)
 }
 
-var firstTick = true
+OS.break = function()
+{
+    return new SysCommand(CommandType.Break, [generator, path, opts])
+}
 
 /// Used in main as initializer for an OS
-OS.default_run = function(start_method)
+function os_default_run(start_method)
 {
     if(firstTick)
     {
         console.log("<b> ====================== Script has restarted at tick " + Game.time + " =================</b>")
         memory_init()
         // This should be some sort of a thread?
-        start_method()
+        create_thread_impl(start_method, 'init')
         
         firstTick = false
         console.log("<b> ====================== Script initialization is done  =================</b>")
@@ -473,4 +545,4 @@ var test_thread = function *(arg1, arg2)
 }
 
 
-module.exports = OS;
+module.exports = os_default_run;

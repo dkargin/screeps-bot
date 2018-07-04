@@ -1,6 +1,6 @@
 // This file should be entry point for OS, and initializer for all the processes
 
-require('OS')
+var system_boot = require('OS')
 
 
 var RUtils = require('utils.room')
@@ -133,15 +133,12 @@ function process_room_towers(room)
     }
 }
 
-function* process_towers()
+function tower_updater()
 {
-    while(true)
+    // This thread updates the towers.
+    for(var r in Game.rooms)
     {
-        for(var r in Game.rooms)
-        {
-            process_room_towers(Game.rooms[r])
-        }
-        yield OS.break()
+        process_room_towers(Game.rooms[r])
     }
 }
 
@@ -197,15 +194,15 @@ var game_loop = function()
 // This function will be called on system startup
 // We should register all necessary threads and tasks here.
 // We will not visit this function until next restart.
-init_system = function()
+function* init_system()
 {
     // This function will be executed infinetly, once per game tick
-    OS.create_loop(game_loop, "main")
-    OS.create_thread(tower_updater, 'towers')
+    yield OS.create_loop(game_loop, "main")
+    yield OS.create_loop(tower_updater, 'towers')
 }
 
 module.exports.loop = function() 
 { 
-    OS.default_run(init_system)
+    system_boot(init_system)
     //build(spawn, STRUCTURE_EXTENSION);
 }
