@@ -2,7 +2,6 @@
 
 var system_boot = require('OS')
 
-
 var RUtils = require('utils.room')
 
 // Disabled so far
@@ -140,6 +139,7 @@ function tower_updater()
     {
         process_room_towers(Game.rooms[r])
     }
+    console.log("Tower updater has completed its turn")
 }
 
 function renew_creeps_near_spawn(spawn)
@@ -196,13 +196,19 @@ var game_loop = function()
 // We will not visit this function until next restart.
 function* init_system()
 {
+    
     // This function will be executed infinetly, once per game tick
-    yield OS.create_loop(game_loop, "main")
-    yield OS.create_loop(tower_updater, 'towers')
+    console.log("Trying to start main loop")
+    var pid_main = yield* OS.create_loop(game_loop, "/main")
+    console.log(" - created main thread with pid=" + pid_main)
+    
+    console.log("init_system - starting towers")
+    var pid_tower = yield* OS.create_loop(tower_updater, 'towers')
+    console.log("init_system is complete")
 }
 
 module.exports.loop = function() 
 { 
-    system_boot(init_system)
+    system_boot(init_system())
     //build(spawn, STRUCTURE_EXTENSION);
 }
