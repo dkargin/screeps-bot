@@ -139,7 +139,7 @@ function tower_updater()
     {
         process_room_towers(Game.rooms[r])
     }
-    console.log("Tower updater has completed its turn")
+    console.log("Tower updater has completed at tick " + Game.time)
 }
 
 function renew_creeps_near_spawn(spawn)
@@ -196,7 +196,6 @@ var game_loop = function()
 // We will not visit this function until next restart.
 function* init_system()
 {
-    
     // This function will be executed infinetly, once per game tick
     console.log("Trying to start main loop")
     var pid_main = yield* OS.create_loop(game_loop, "/main")

@@ -5,24 +5,12 @@
 
 global.OS = global.OS || {}
 
-/// Init volatile cache. Should we do it here?
-_.defaults(OS, {
-    threads : {},
-    /// Why do we need cache here?
-    cache:
-    {
-        rooms: {},
-        corporations : {},
-        creeps: {},
-        sources: {},
-    },
-})
-
 var OS_LOG_FATAL = 5
 var OS_LOG_ERROR = 4
-var OS_LOG_INFO = 3
-var OS_LOG_DEBUG = 2
-var OS_LOG_VERBOSE = 1
+var OS_LOG_WARN = 3
+var OS_LOG_INFO = 2
+var OS_LOG_DEBUG = 1
+var OS_LOG_VERBOSE = 0
 
 function log_suffix(level)
 {
@@ -30,6 +18,7 @@ function log_suffix(level)
     {
         case OS_LOG_FATAL: return "FATAL";
         case OS_LOG_ERROR: return "ERROR";
+        case OS_LOG_WARN: return "WARNING";
         case OS_LOG_INFO: return "INFO";
         case OS_LOG_DEBUG: return "DEBUG";
         case OS_LOG_VERBOSE: return "VERBOSE";
@@ -37,12 +26,7 @@ function log_suffix(level)
     }
 }
 
-var thread_by_path = {}
-var thread_by_pid = {}
-var free_pids = []
-var last_pid = 1
-var firstTick = true
-
+// Log level setting. Maps to Memory.settings.logLevel
 OS.logLevel = OS_LOG_INFO
 
 OS.log = function(level, text)
@@ -51,20 +35,39 @@ OS.log = function(level, text)
         console.log("OS:" + log_suffix(level) + ": " + text)
 }
 
-OS.log_info = function(text)
+OS.log_fatal = function(text) { this.log(OS_LOG_FATAL, text) }
+OS.log_error = function(text) { this.log(OS_LOG_ERROR, text) }
+OS.log_warn = function(text) { this.log(OS_LOG_WARN, text) }
+OS.log_info = function(text) { this.log(OS_LOG_INFO, text) }
+OS.log_debug = function(text) { this.log(OS_LOG_DEBUG, text) }
+OS.log_verbose = function(text) { this.log(OS_LOG_VERBOSE, text) }
+
+// Alters current log level
+OS.setLogLevel = function(level)
 {
-    this.log(OS_LOG_INFO, text)
+    if (level != OS.logLevel)
+    {
+        OS.logLevel = level
+        _.set(Memory, ['settings', 'logLevel'], level)
+    }
 }
 
-OS.log_error = function(text)
-{
-    this.log(OS_LOG_ERROR, text)
-}
+// Defines current OS-specific memory version
+// System will reset current memory if this value differs from the cached one
+var OS_MEMORY_VERSION = 2
 
-OS.log_debug = function(text)
-{
-    this.log(OS_LOG_DEBUG, text)
-}
+// Thread tables
+var thread_by_path = {}
+var thread_by_pid = {}
+var free_pids = []
+var last_pid = 1
+
+// Threshold for stopping thread schedule and ending cycle
+var os_cpu_threshold = 0.5
+// Maximum conditions to be awaited for each thread
+var max_waits_per_thread = 5
+// Flag for tracking the first tick
+var firstTick = true
 
 // OS Sessing identifier. Incremented every new start
 // We use it for tracking some kernel objects, that are 
@@ -158,14 +161,47 @@ Game.check_alive = function(objects)
 }*/
 
 // Local function to initialize OS memory
-function memory_init()
+function memory_init(user_memory_version)
 {
     OS.log_info("Initializing BOT memory")
-
-    _.defaults(Memory.os, {session_id: 0, last_start_tick: 0})
     
-    Memory.os.session_id = Memory.os.session_id + 1
-    current_session_id = Memory.os.session_id
+    /// Init volatile cache
+    _.defaults(OS, {
+        threads : {},
+        /// Why do we need cache here?
+        cache:
+        {
+            rooms: {},
+            corporations : {},
+            creeps: {},
+            sources: {},
+        },
+    })
+    
+    // Init settings page
+    _.defaults(Memory.settings, 
+    {
+        os_cpu_threshold: os_cpu_threshold,
+        os_log_level: OS_LOG_INFO
+    })
+
+    // Init OS data page
+    var os_mem_default = {session_id: 0, start_tick: Game.time, mem_version: OS_MEMORY_VERSION, threads: {}}
+    
+    _.defaults(Memory.os, os_mem_default)
+    
+    if (Memory.os.mem_version != OS_MEMORY_VERSION)
+    {
+        // Resetting memory to initial state
+        OS.log_info("OS memory version has changed. Resetting Memory.os")
+        Memory.os = os_mem_default
+    }
+    
+    current_session_id = Memory.os.session_id + 1
+    Memory.os.session_id = current_session_id
+    
+    OS.logLevel = Memory.settings.os_log_level;
+    os_cpu_threshold = Memory.settings.os_cpu_threshold;
     
     OS.start_tick = Game.time
     
@@ -283,28 +319,39 @@ OS.memory_clean = function()
 
 
 /// Not sure we need a separate enum, instead of a function
-var CommandType = 
-{
-    CreateThread: 1,
-    Sleep: 2,
-    Break: 3,
-    Wait: 4,
-    Acquire: 5,
-    Release: 6,
-    GetSelf: 7,
-    FinishTick: 8,
-};
+var CMD_CREATE_THREAD = 1
+var CMD_WAIT = 4
+var CMD_ACQUIRE = 5
+var CMD_RELEASE = 6
+var CMD_GET_SELF = 7
+// Reimplemented using 'Sleep' command
+//var CMD_FINISH_TICK = 8
 
 var ThreadState = 
 {
     Initial: 0,
     Waiting: 1,     // Waitint to be scheduled
-    Running: 2,     // Running right now
     Done: 3,        // Thread has exited
     SysCall: 4,     // Interrupted by a system call
     Exception: 5,
-    DoneTick: 6,    // Thread has completed its cycle, and can be scheduled only at the next iteration
 };
+
+function stateToString(state)
+{
+    switch(state)
+    {
+        case ThreadState.Initial: return "initial";
+        case ThreadState.Waiting: return "waiting";
+        case ThreadState.Done: return "done";
+        case ThreadState.SysCall: return "syscall";
+        case ThreadState.Exception: return "exception";
+        default:
+            return "unknown";
+    }
+}
+
+// Error for OS problems
+class OSError extends Error { };
 
 /// System command.
 /// Every yield.OS should return this object
@@ -326,16 +373,30 @@ class ThreadContext
     {
         this.generator = generator
         this.priority = opts.priority || 10
+        // Thread text path. It can be used with lodash in future
         this.path = path
-        this.state = 0
+        
+        this.state = ThreadState.Initial
+        
         /// Last updated tick
-        this.last_tick = 0  //Game.time
+        this.last_tick = 0
+        
         this.loop = opts.loop || false
-        if (this.loop)
-            OS.log_debug("thread " + path + " will be a loop function")
         this.pid = 0
+        // This field is used to check memory integrity
+        // If we find a thread with session_id differnent from OS.session_id, we 
+        // clean this data
         this.session_id = 0
         this.parent_ = parent
+        // Index in thread queue
+        this.schedule_index = -1
+        
+        // A list of awaited conditions
+        this.conditions = []
+        // Statistics
+        this.stat_syscalls = 0
+        this.stat_waits = 0
+        this.stat_cpu = 0
     }
 
     /// Calculates current thread priority
@@ -344,98 +405,158 @@ class ThreadContext
         return this.priority * (tick - this.last_tick)
     }
     
-    /// Check if thead is complete for current tick
-    complete(tick)
-    {
-        return this.last_tick == tick
-    }
-    
     get_state()
     {
         return this.state
     }
 }
 
+function get_tick()
+{
+    return Game.time
+}
+
 function spin_thread(thread, tick)
 {
     OS.log_debug("Spinning thread " + style_os_symbol(thread.path) + " at tick " + style_os_symbol(tick));
-    var result
+    
+    thread.last_tick = tick
     
     if (!(thread instanceof ThreadContext))
         throw("OS: Can spin threads only")
     
-    var state = thread.get_state()
-    switch(state)
+    // We can iterate a thread several times
+    do
     {
-        case ThreadState.Initial:
-            OS.log_debug("thread " + style_os_symbol(thread.path) + " is in initial state. Running until the first interrupt");
-            result = thread.generator.next()
-            break;
-            
-        case ThreadState.DoneTick:
-        case ThreadState.SysCall:
-            //console.log("Thread \"" + thread.path + "\" is being restored from system interrupt.");
-            var os_result = thread.os_result
-            thread.os_result = null
-            result = thread.generator.next(os_result)
-            break;
-        default:
-            throw("Unhandled state for the thread=" + state)
-    }
-    
-    if (!result)
-    {
-        thread.state = ThreadState.Exception
-        throw("Generator should return something good")
-    }
-    else if (result.done)
-    {
-        OS.log_info("thread " + style_os_symbol(thread.path) + " has exited smoothly");
-        thread.state = ThreadState.Done
-    }
-    else
-    {
-        var signal = result.value
-        if (signal instanceof SysCommand)
+        // Iterate thread once
+        var result
+        switch(thread.get_state())
         {
-            thread.state = ThreadState.SysCall;
-            
-            switch(signal.command)
-            {
-                case CommandType.CreateThread:
-                    OS.log_debug("thread " + style_os_symbol(thread.path) + " is interrupted by command CreateThread");
-                    //[generator, path, opts]
-                    var newThread = create_thread_impl(thread, ...signal.args)
-                    thread.os_result = newThread.pid
-                    break;
-                /*
-                case CommandType.Sleep:break;
-                case CommandType.Break:break;
-                case CommandType.Wait:break;
-                case CommandType.Acquire:break;
-                case CommandType.Release:break;
-                */
-                case CommandType.GetSelf:
-                    OS.log_debug("thread \"" + thread.path + "\" is interrupted by command GetSelf");
-                    thread.os_result = thread;
-                    break;
-                case CommandType.FinishTick:
-                    thread.state = ThreadState.DoneTick;
-                    thread.os_result = true;
-                    break;
-                default:
-                    os.log_error("thread \"" + thread.path + "\" is interrupted by an unhandled system command=" + signal.command);
-                    break;
-            }
+            case ThreadState.Initial:
+                OS.log_debug("thread " + style_os_symbol(thread.path) + " is in initial state. Running until the first interrupt");
+                result = thread.generator.next()
+                break;
+                
+            case ThreadState.DoneTick:
+            case ThreadState.SysCall:
+                //console.log("Thread \"" + thread.path + "\" is being restored from system interrupt.");
+                var os_result = thread.os_result
+                thread.os_result = null
+                result = thread.generator.next(os_result)
+                break;
+            default:
+                throw("Unhandled state for the thread=" + state)
         }
-        else
+        
+        thread.state = ThreadState.Initial;
+        
+        // Parse thread result
+        if (!result)
         {
-            os.log_error("Thread \"" + thread.path + "\" has yielded to unknown " + (typeof signal));
-        }    
-    }
+            thread.state = ThreadState.Exception
+            throw OSError("Generator should return something good")
+        }
+        else if (result.done)
+        {
+            OS.log_info("thread " + style_os_symbol(thread.path) + " has exited smoothly");
+            thread.state = ThreadState.Done
+            return true;
+        }
+        
+        var signal = result.value
+        
+        if(!(signal instanceof SysCommand))
+            throw OSError("Thread \"" + thread.path + "\" has yielded to unknown " + (typeof signal));
+        
+        switch(signal.command)
+        {
+            case CMD_CREATE_THREAD:
+                OS.log_debug("thread " + style_os_symbol(thread.path) + " is interrupted by command CreateThread");
+                //[generator, path, opts]
+                var newThread = create_thread_impl(thread, ...signal.args)
+                thread.os_result = newThread.pid
+                thread.state = ThreadState.SysCall;
+                break;
+                
+            case CMD_WAIT:
+                OS.log_debug("thread \"" + thread.path + "\" is interrupted by command WAIT with args " + JSON.stringify(signal.args));
+                
+                // Should fill in all wait conditions
+                for(var i in signal.args)
+                {
+                    var arg = signal.args[i]
+                    
+                    // Add condition about PID
+                    if ('pid' in arg)
+                    {
+                        thread.conditions.push(function(OS)
+                        {
+                            // Check if pid with this ID has died
+                            if (!thread_by_pid[arg.pid] ||
+                                thread_by_pid[arg.pid].state == ThreadState.Done ||
+                                thread_by_pid[arg.pid].state == ThreadState.Exception)
+                                return arg;
+                        });
+                        continue;
+                    }
+                    
+                    // Add condition to wake up after N ticks
+                    if ('ticks' in arg)
+                    {
+                        var wait_ticks = arg.ticks
+                        var awake_tick = tick + wait_ticks
+                        OS.log_verbose("will wake after " + wait_ticks + " ticks, at tick=" + awake_tick);
+                        thread.conditions.push(function(OS)
+                        {
+                            if(_.gte(get_tick(), awake_tick))
+                                return arg;
+                        });
+                        continue;
+                    }
+                    
+                    OS.log_warn("unknown wait condition " + arg)
+                }
+                
+                if (thread.conditions.length > 0)
+                {
+                    thread.state = ThreadState.Waiting
+                }
+                else
+                {
+                    OS.log_error("no wait conditions were defined")
+                    return;
+                }
+                break;
+                
+            case CMD_GET_SELF:
+                // TODO: I guess we should repeat this thread right here
+                OS.log_debug("thread \"" + thread.path + "\" is interrupted by command GetSelf");
+                thread.os_result = thread;
+                thread.state = ThreadState.SysCall;
+                break;
+                
+            default:
+                os.log_error("thread \"" + thread.path + "\" is interrupted by an unhandled system command=" + signal.command);
+                break;
+        }
+    }while(thread.get_state() == ThreadState.SysCall);
     
-    thread.last_tick = tick
     return true;
+}
+
+function dump_thread_stats()
+{
+    for(var p in thread_by_path)
+    {
+        var thread = thread_by_path[p]
+        
+        Memory.os.threads[p] = 
+        {
+            pid: thread.pid,
+            state: stateToString(thread.get_state()),
+            session: thread.session_id,
+        }
+    }
 }
 
 // OS.threads should contain map /path -> Context
@@ -466,15 +587,38 @@ function schedule_threads()
                 OS.log_debug("thread " + style_os_symbol(thread.path) + " is in Done state - deleting it");
                 dead_threads.push(thread)
                 break;
-            case ThreadState.Exception:
-                OS.log_debug("thread "+ style_os_symbol(thread.path) + " is in Error state - deleting it");
-                dead_threads.push(thread)
-                break;
-            case ThreadState.DoneTick:
-                if (thread.last_tick != tick)
+                
+            case ThreadState.Waiting:
+                if (_.isEmpty(thread.conditions))
+                    OS.log_error("thread " + style_os_symbol(thread.path) + " is waiting, but has no conditions");
+                else
+                    OS.log_debug("thread " + style_os_symbol(thread.path) + " is trying to check wait conditions");
+                    
+                var awaken = [];
+                for (var i in thread.conditions)
                 {
+                    var check = thread.conditions[i](OS)
+                    if (check)
+                    {
+                        awaken.push(check);
+                        break;
+                    }
+                }
+                
+                if (awaken.length > 0)
+                {
+                    OS.log_debug("thread "+ style_os_symbol(thread.path) + " has awakened by: " + JSON.stringify(awaken));
+                    thread.state = ThreadState.SysCall
+                    thread.conditions = []
+                    thread.os_result = awaken
                     spawn.push(thread)
                 }
+                
+                break;
+                
+            case ThreadState.Exception:
+                OS.log_error("thread "+ style_os_symbol(thread.path) + " is in Error state - deleting it");
+                dead_threads.push(thread)
                 break;
             default:
                 spawn.push(thread)
@@ -487,6 +631,9 @@ function schedule_threads()
 
     var threads_iterated = 0
 
+    //if (spawn.length == 0)
+    //    OS.log_warn("No threads were scheduled for tick " + tick)
+        
     /// 3. Run thread spawn until CPU is exausted
     for(var t in spawn)
     {
@@ -510,16 +657,9 @@ function schedule_threads()
         remove_thread(thread)
     }
     
-    return threads_iterated
-}
-
-
-/// Finds thread by name or pid
-/// It returns copied thread info
-OS.find_thread = function(name_or_pid)
-{
-    /// TODO: implement
+    dump_thread_stats()
     
+    return threads_iterated
 }
 
 /// Simplest generator of new PID
@@ -563,9 +703,6 @@ function create_thread_impl(parent, generator, path, opts = {})
         
     if (typeof(path) != 'string')
         throw("create_thread_impl path should be a string")
-    /// Path - 
-    /// opts.priority = number
-    /// opts.restart = 
 
     // Check if specified path is occupied
     if(path in thread_by_path)
@@ -605,8 +742,20 @@ function create_thread_impl(parent, generator, path, opts = {})
 OS.create_thread = function*(generator, path, opts = {})
 {
     //console.log("create_thread("+path+"): creating child thread")
-    var pid = yield new SysCommand(CommandType.CreateThread, [generator, path, opts])
+    var pid = yield new SysCommand(CMD_CREATE_THREAD, [generator, path, opts])
     return pid
+}
+
+// Wrapper for all loop threads
+function* loop_wrapper(loop_fn)
+{
+    //console.log("create_loop("+path+"): started loop wrapper")
+    var env = yield* OS.this_thread()
+    do
+    {
+        loop_fn()
+    }while(yield* OS.finishTick());
+    OS.log_debug("create_loop("+style_os_symbol(env.path)+"): finished loop wrapper")
 }
 
 OS.create_loop = function*(fn, path, opts = {})
@@ -617,35 +766,41 @@ OS.create_loop = function*(fn, path, opts = {})
         return 0
     }
     
-    var generator = function*()
-    {
-        //console.log("create_loop("+path+"): started loop wrapper")
-        do
-        {
-            fn()
-        }while(yield* OS.finishTick());
-        OS.log_debug("create_loop("+style_os_symbol(path)+"): finished loop wrapper")
-    }
-    
-    opts.loop = true
-    //console.log("create_loop("+path+"): calling create_thread")
-    var pid = yield* OS.create_thread(generator(), path, opts)
-    return pid
+    opts = _.defaults({loop:true}, opts)
+    // Returning PID of that process
+    return yield* OS.create_thread(loop_wrapper(fn), path, opts)
 }
 
 OS.finishTick = function*()
 {
-    return yield new SysCommand(CommandType.FinishTick, [])
+    return yield new SysCommand(CMD_WAIT, [{ticks:1}])
 }
 
 OS.this_thread = function*()
 {
-    return yield new SysCommand(CommandType.GetSelf, [])
+    return yield new SysCommand(CMD_GET_SELF, [])
+}
+
+/*
+ * Wait for some condition
+ * Variants: opts = {pid: 1}
+ */
+OS.wait = function*()
+{
+    var args = [...arguments]
+    return yield new SysCommand(CMD_WAIT, args)
 }
 
 OS.break = function*()
 {
-    return yield new SysCommand(CommandType.Break, [])
+    return yield new SysCommand(CMD_WAIT, [{ticks:1}])
+}
+
+// Sleep for specified number of ticks
+OS.sleep = function*(ticks=1)
+{
+    var args = [...arguments]
+    return yield new SysCommand(CMD_WAIT, [{ticks:ticks}])
 }
 
 /// Used in main as initializer for an OS
@@ -657,25 +812,51 @@ function os_default_run(start_method)
         memory_init()
         
         // This should be some sort of a thread?
-        create_thread_impl(null, start_method, 'bootloader')
+        var boot_pid = create_thread_impl(null, start_method, 'bootloader').pid
+        
+        // Starting memory cleaner. It will clean memory caches
+        // User can upload additional clean methods
+        create_thread_impl(null, function*()
+        {
+            yield* OS.wait({pid:boot_pid})
+            OS.log_info("<b> starting memclean thread </b>")
+            do
+            {
+                OS.memory_clean();
+            }while(yield *OS.finishTick());
+            OS.log_fatal("<b>!!! memclean has exited its cycle !!!</b>")
+        }(), 'memclean');
         
         firstTick = false
         console.log("<b> ====================== Script initialization is done  =================</b>")
     }
     
-    var threshold = 0.5
+    var cpu_limit = Game.cpu.limit * os_cpu_threshold
     
     try
     {
         var startCpu = Game.cpu.getUsed() 
-        while(schedule_threads() > 0)
-        {
-            var currentCpu = Game.cpu.getUsed()
-            if (currentCpu > Game.cpu.limit * threshold)
-                break;
-        }
+        OS.log_info("Running tick " + Game.time)
         
-        OS.memory_clean()
+        var totalThreads = 0
+        
+        do
+        {
+            var scheduled = schedule_threads()
+            if (scheduled == 0)
+                break;
+
+            totalThreads += scheduled;
+            var currentCpu = Game.cpu.getUsed()
+            if (currentCpu > cpu_limit)
+            {
+                OS.log_warn("Scheduler has exceded cpu threahold: " + currentCpu + " over " + cpu_limit)
+                break;
+            }
+        }while(true)
+        
+        if (totalThreads == 0)
+            OS.log_warn("No threads were scheduled at tick " + Game.time)
         
         var used = Game.cpu.getUsed() 
         if(used > 10)
@@ -690,15 +871,6 @@ function os_default_run(start_method)
     }
 }
 
-/**
- * Possible API, accessible through yieldt:
- * break()
- * sleep(ticks)
- * thread_info()
- * wait_for(path)
- * create_thread()
- * create_loop()
- */
 
 /**
  * Thread statistics:
@@ -708,22 +880,32 @@ function os_default_run(start_method)
  */ 
 /// This is the example foe OS thread
 /// We do thread testing for this
-var test_thread = function *(arg1, arg2)
+var test_worker = function *(name, time)
 {
-    var name = "noname"
-    
     var info = yield OS.thread_info()
-    var name = info.path || "noname"
     
-    console.log("Entered thread " + name)
+    console.log(name + " has started")
     
-    yield OS.break("Stop at step 1")
-
-    console.log("Doing step2 with arg="+arg1 + " arg2="+arg2)
-    yield OS.break("Stop at step 2")
-
+    yield* OS.break("Stop at step 1")
+    console.log(name + " is doing step2")
+    yield* OS.break("Stop at step 2")
+    console.log(name + " is doing step3")
+    yield* OS.break("Stop at step 3")
+    console.log(name + " is going to sleep for " + time + " ticks")
+    yield* OS.sleep(time)
     return "Complete"
 }
+
+function* test_threads()
+{
+    console.log("Starting thread test")
+    var pid1 = yield* OS.create_thread(test_worker("worker1"), "/worker1")
+    var pid2 = yield* OS.create_thread(test_worker("worker1"), "/worker1")
+    
+    yield* OS.wait({pid: pid1}, {pid: pid2})
+    console.log("Thread test is complete")
+}
+
 
 
 module.exports = os_default_run;
