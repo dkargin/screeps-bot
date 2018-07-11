@@ -436,8 +436,6 @@ function spin_thread(thread, tick)
                 OS.log_debug("thread " + style_os_symbol(thread.path) + " is in initial state. Running until the first interrupt");
                 result = thread.generator.next()
                 break;
-                
-            case ThreadState.DoneTick:
             case ThreadState.SysCall:
                 //console.log("Thread \"" + thread.path + "\" is being restored from system interrupt.");
                 var os_result = thread.os_result
@@ -652,11 +650,11 @@ function schedule_threads()
     
     for(var i in dead_threads)
     {
-        // TODO: delete it
         var thread = dead_threads[i]
         remove_thread(thread)
     }
     
+    // TODO: Move it to a separate thread
     dump_thread_stats()
     
     return threads_iterated
@@ -687,7 +685,7 @@ function remove_thread(thread)
     if (pid && pid in thread_by_pid)
         delete thread_by_pid[pid]
         
-    // TODO: Remove it from current spawn
+    // TODO: Save statistics for this thread
 }
 
 function style_os_symbol(text)
@@ -733,7 +731,7 @@ function create_thread_impl(parent, generator, path, opts = {})
     var parent_path = "none"
     if (parent && parent.path)
         parent_path = parent.path
-    OS.log_info("Created thread " + style_os_symbol(path) + " with pid=<b>"+style_os_symbol(pid) + "</b> parent_path=<b>" + style_os_symbol(parent_path) + "</b> loop=" + style_os_symbol(tc.loop))
+    OS.log_info("Created thread " + style_os_symbol(path) + " with pid="+style_os_symbol(pid) + " parent_path=" + style_os_symbol(parent_path) + " loop=" + style_os_symbol(tc.loop))
     
     return tc
 }
@@ -765,10 +763,8 @@ OS.create_loop = function*(fn, path, opts = {})
         OS.log_error("create_loop("+style_os_symbol(path)+": should give a function")
         return 0
     }
-    
-    opts = _.defaults({loop:true}, opts)
     // Returning PID of that process
-    return yield* OS.create_thread(loop_wrapper(fn), path, opts)
+    return yield* OS.create_thread(loop_wrapper(fn), path, _.defaults({loop:true}, opts))
 }
 
 OS.finishTick = function*()

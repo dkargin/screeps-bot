@@ -1,12 +1,8 @@
-/*
- * Module code goes here. Use 'module.exports' to export things:
- * module.exports.thing = 'a thing';
- *
- * You can import it from another modules like this:
- * var mod = require('simple.ai');
- * mod.thing == 'a thing'; // true
+/* Main module for simple ai
+ * It should develop a colony up to tier4, then be replaced by another ai
  */
 
+var HoP = require('spawner')
 /// Simple behaviours from tutorial
 var simpleBehaviours =
 {
@@ -18,20 +14,14 @@ var simpleBehaviours =
 
 var firstTick = true
 
-global.enable_simpleai = function()
+function simple_ai_init()
 {
-	Memory['simple.ai'] = true
+    
 }
 
-global.disable_simpleai = function()
+function simple_ai_run()
 {
-	Memory['simple.ai'] = false
-}
- 
-function simple_ai()
-{
-	if(!Memory['simple.ai'])
-		return
+    console.log("simple.ai starting tick " + Game.time)
 	var errors = []
 	var population = {}
 	
@@ -51,6 +41,8 @@ function simple_ai()
 			delete Memory.servitor_give[r]
 		}
 	}
+	
+	console.log("simple.ai done checking servitors")
 	/// Process simple behaviours
 	/// It also counds role population for each room
     for(var c in Game.creeps) 
@@ -60,6 +52,7 @@ function simple_ai()
     	if(!obj)
     	    continue
     	var role = obj.memory.role
+    	
     	if(obj && obj.memory.role in simpleBehaviours)
 		{
 		    var role =  obj.memory.role
@@ -88,6 +81,7 @@ function simple_ai()
 		}
     }
     
+    console.log("simple.ai processing spawns")
     /// Now we do process spawn
 	for(var rname in population)
 	{
@@ -105,7 +99,7 @@ function simple_ai()
 		var spawn = spawns[0]
 		if(spawn.spawning)
 		{
-			//console.log("Spawn is spawning" + rname)
+			console.log("Spawn is spawning" + rname)
 			continue
 		}
 		
@@ -113,7 +107,7 @@ function simple_ai()
 		{
 			var pop = roomPop[role] || 0
 			var controller = simpleBehaviours[role]
-			//console.log("spawn", "Role="+role+" has pop=" +pop + " req="+ controller.get_desired_population(room))
+			console.log("spawn", "Role="+role+" has pop=" +pop + " req="+ controller.get_desired_population(room))
 			
 			if(pop < controller.get_desired_population(room))
 			{   
@@ -133,7 +127,7 @@ function simple_ai()
 				}
 				else
 				{
-				    //console.log("Failed to spawn " + name + "=" + desc.body + " : "+result)
+				    console.log("Failed to spawn " + name + "=" + desc.body + " : "+result)
 				}
 			}
 		}
@@ -143,8 +137,12 @@ function simple_ai()
 	
 	for(var err in errors)
 		throw(err)
+		
+	console.log("simple.ai tick " + Game.time + " done")
 }
 
-module.exports = {
-    run : simple_ai
+module.exports = 
+{
+    run : simple_ai_run,
+    init: simple_ai_init,
 };

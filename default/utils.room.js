@@ -1,12 +1,3 @@
-/*
- * Module code goes here. Use 'module.exports' to export things:
- * module.exports.thing = 'a thing';
- *
- * You can import it from another modules like this:
- * var mod = require('utils.room');
- * mod.thing == 'a thing'; // true
- */
-
 /// Terrain type
 const TERRAIN_WALL = 1
 const TERRAIN_SWAMP = 2
@@ -438,10 +429,12 @@ class RoomData
 
 		this.clear_spots()
 		
+		yield* OS.break()
 		for(var m in info.mines)
 		{
-			yield "calculating path to mine " + m
+			
 			this.place_mine_spots(info.mines[m], info)
+			yield* OS.break()
 		}
 
 		info.mine_version = ROOM_DATA_MINES_VERSION
@@ -567,7 +560,7 @@ class RoomData
 	}
 
 	/// Read terrain and generate proper spots
-	*map_analyser()
+	*map_analyser_thread()
 	{	
 		console.log("Started room " + this.name + " analysis")
 		this.read_terrain()
@@ -936,5 +929,41 @@ var Utils = {
     	return Database[name]
     },
 }
+
+
+function getRandomFreePos(startPos, distance) 
+{
+    var x,y;
+    do {
+        x = startPos.x + Math.floor(Math.random()*(distance*2+1)) - distance;
+        y = startPos.y + Math.floor(Math.random()*(distance*2+1)) - distance;
+    }
+    while((x+y)%2 != (startPos.x+startPos.y)%2 || Game.map.getTerrainAt(x,y,startPos.roomName) == 'wall');
+    return new RoomPosition(x,y,startPos.roomName);
+}
+
+function build(spawn, structureType)
+{
+    var structures = spawn.room.find(FIND_STRUCTURES, {filter: {structureType, my: true}});
+    for(var i=0; i < CONTROLLER_STRUCTURES[structureType][spawn.room.controller.level] - structures.length; i++) {
+        getRandomFreePos(spawn.pos, 5).createConstructionSite(structureType);
+    }
+}
+
+global.build_path = function(from, to)
+{
+    var path = from.pos.findPathTo(to.pos)
+    var room = from.pos.roomName
+    
+    if(path)
+    {
+        for(var i in path)
+        {
+            var wp = path[i]
+            from.room.createConstructionSite(wp.x, wp.y, STRUCTURE_ROAD)
+        }
+    }
+}
+
 
 module.exports = Utils;

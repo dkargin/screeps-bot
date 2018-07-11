@@ -1,13 +1,5 @@
-/*
- * Module code goes here. Use 'module.exports' to export things:
- * module.exports.thing = 'a thing';
- *
- * You can import it from another modules like this:
- * var mod = require('corporation');
- * mod.thing == 'a thing'; // true
- */
 
-//require('memory')
+global.brain = global.brain || {}
  
 var Rooms = require("utils.room")
 //var Actions = require("threads")
