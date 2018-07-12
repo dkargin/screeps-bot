@@ -393,10 +393,16 @@ class ThreadContext
         
         // A list of awaited conditions
         this.conditions = []
-        // Statistics
-        this.stat_syscalls = 0
-        this.stat_waits = 0
-        this.stat_cpu = 0
+        
+        // Load statistics from the memory. Should be done at thread creation stage
+        this.stat = _.get(Memory.os, ['threads', this.path], {
+            syscalls:0,
+            waits:0,
+            cpu:0,
+            cpu_avg:0,
+            errors:0,
+        })
+        this.stat.session_cpu = 0
     }
 
     /// Calculates current thread priority
@@ -408,6 +414,19 @@ class ThreadContext
     get_state()
     {
         return this.state
+    }
+    
+    // Saves statistics to the memory
+    save_stat()
+    {
+        var path = this.path
+        Memory.os.threads[path] = 
+        {
+            pid: this.pid,
+            state: stateToString(thread.get_state()),
+            session: this.session_id,
+            stat: this.stat
+        }
     }
 }
 
@@ -422,6 +441,8 @@ function spin_thread(thread, tick)
     
     thread.last_tick = tick
     
+    var cpuInThread = 0
+    
     if (!(thread instanceof ThreadContext))
         throw("OS: Can spin threads only")
     
@@ -433,14 +454,24 @@ function spin_thread(thread, tick)
         switch(thread.get_state())
         {
             case ThreadState.Initial:
-                OS.log_debug("thread " + style_os_symbol(thread.path) + " is in initial state. Running until the first interrupt");
-                result = thread.generator.next()
-                break;
             case ThreadState.SysCall:
                 //console.log("Thread \"" + thread.path + "\" is being restored from system interrupt.");
+                
                 var os_result = thread.os_result
                 thread.os_result = null
-                result = thread.generator.next(os_result)
+                try
+                {
+                    thread.stat.runs++
+                    var cpuTaken = Game.cpu.getUsed()
+                    result = thread.generator.next(os_result)
+                    cpuTaken = Game.cpu.getUsed() - cpuTaken
+                    thread.stat.session_cpu += cpuTaken
+                    thread.stat.cpu += cpuTaken
+                }
+                catch(ex)
+                {
+                    thread.stat.errors++
+                }
                 break;
             default:
                 throw("Unhandled state for the thread=" + state)
@@ -460,6 +491,8 @@ function spin_thread(thread, tick)
             thread.state = ThreadState.Done
             return true;
         }
+        
+        thread.stat.syscalls++
         
         var signal = result.value
         
@@ -547,14 +580,9 @@ function dump_thread_stats()
     for(var p in thread_by_path)
     {
         var thread = thread_by_path[p]
-        
-        Memory.os.threads[p] = 
-        {
-            pid: thread.pid,
-            state: stateToString(thread.get_state()),
-            session: thread.session_id,
-        }
+        thread.save_stat()
     }
+    
 }
 
 // OS.threads should contain map /path -> Context
@@ -610,6 +638,10 @@ function schedule_threads()
                     thread.conditions = []
                     thread.os_result = awaken
                     spawn.push(thread)
+                }
+                else
+                {
+                    thread.stat.waits++
                 }
                 
                 break;
@@ -672,6 +704,13 @@ function get_session_id()
 {
     return current_session_id;
 }
+
+/**
+ * Thread statistics:
+ *  - runs_count
+ *  - fail_count
+ *  - last_status
+ */
 
 // Cleans up all references from the thread
 function remove_thread(thread)
@@ -867,13 +906,6 @@ function os_default_run(start_method)
     }
 }
 
-
-/**
- * Thread statistics:
- *  - runs_count
- *  - fail_count
- *  - last_status
- */ 
 /// This is the example foe OS thread
 /// We do thread testing for this
 var test_worker = function *(name, time)
