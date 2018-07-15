@@ -1,4 +1,4 @@
-//var Actions = require('utils.action')
+// Spawner seems to be OK for now. It works
 
 /// Unpacks recipe from compact definition
 global.unpack_recipe = function(packed_recipe)

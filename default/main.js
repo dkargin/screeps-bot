@@ -35,7 +35,7 @@ function draw_room_data()
 {
     for(var r in Game.rooms)
     {
-        var rdata = RUtils.get_room_data(r)
+        var rdata = get_room_data(r)
         rdata.draw_room_info()
     }   
 }
@@ -68,7 +68,7 @@ function* terrain_inspector()
         var room = Game.rooms[r]
         console.log("Analysing room " + r)
         
-        var rdata = RUtils.get_room_data(r)
+        var rdata = get_room_data(r)
         yield* rdata.map_analyser_thread() 
         yield* OS.break();
     }
@@ -89,7 +89,7 @@ function tower_updater()
             //_.forEach(towers[r], )
         }
     }
-    console.log("Tower updater has completed at tick " + Game.time)
+    //console.log("Tower updater has completed at tick " + Game.time)
 }
 
 // Loop function to auto-renew creeps nearby the spawns
@@ -144,10 +144,12 @@ function* init_system()
     RUtils = require('utils.room')
     SimpleAI = require('simple.ai')
     SimpleAI.init()
+    var pid = yield* OS.create_thread(terrain_inspector(), 'terrain_inspector')
+    yield* OS.wait({pid: pid})
     yield* OS.create_loop(game_loop, "/main")
     yield* OS.create_loop(tower_updater, 'towers')
     yield* OS.create_loop(auto_spawn_renew, 'spawn_renew')
-    //yield* OS.create_thread(terrain_inspector(), 'terrain_inspector')
+    
     
     console.log("AI: Init is complete")
 }

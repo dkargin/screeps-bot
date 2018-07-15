@@ -395,12 +395,13 @@ class ThreadContext
         this.conditions = []
         
         // Load statistics from the memory. Should be done at thread creation stage
-        this.stat = _.get(Memory.os, ['threads', this.path], {
+        this.stat = _.defaults(_.get(Memory.os, ['threads', this.path]), {
             syscalls:0,
             waits:0,
             cpu:0,
             cpu_avg:0,
             errors:0,
+            runs:0
         })
         this.stat.session_cpu = 0
     }
@@ -423,7 +424,7 @@ class ThreadContext
         Memory.os.threads[path] = 
         {
             pid: this.pid,
-            state: stateToString(thread.get_state()),
+            state: stateToString(this.get_state()),
             session: this.session_id,
             stat: this.stat
         }
@@ -459,20 +460,27 @@ function spin_thread(thread, tick)
                 
                 var os_result = thread.os_result
                 thread.os_result = null
+                thread.stat.runs++
+                var cpuTaken = Game.cpu.getUsed()
                 try
                 {
-                    thread.stat.runs++
-                    var cpuTaken = Game.cpu.getUsed()
                     result = thread.generator.next(os_result)
-                    cpuTaken = Game.cpu.getUsed() - cpuTaken
-                    thread.stat.session_cpu += cpuTaken
-                    thread.stat.cpu += cpuTaken
                 }
                 catch(ex)
                 {
                     thread.stat.errors++
+                    thread.state = ThreadState.Exception
+                    OS.log_error("Error running thread "+style_os_symbol(thread.path)+": " + ex + "\n" + ex.stack);
+                    return true;
+                }
+                finally
+                {
+                    cpuTaken = Game.cpu.getUsed() - cpuTaken
+                    thread.stat.session_cpu += cpuTaken
+                    thread.stat.cpu += cpuTaken
                 }
                 break;
+                
             default:
                 throw("Unhandled state for the thread=" + state)
         }
@@ -482,8 +490,10 @@ function spin_thread(thread, tick)
         // Parse thread result
         if (!result)
         {
-            thread.state = ThreadState.Exception
-            throw OSError("Generator should return something good")
+            // In fact we should never be here
+            thread.state = ThreadState.Exception;
+            throw new OSError("Generator should return something good")
+            return true;
         }
         else if (result.done)
         {
@@ -497,7 +507,7 @@ function spin_thread(thread, tick)
         var signal = result.value
         
         if(!(signal instanceof SysCommand))
-            throw OSError("Thread \"" + thread.path + "\" has yielded to unknown " + (typeof signal));
+            throw new OSError("Thread \"" + thread.path + "\" has yielded to unknown " + (typeof signal));
         
         switch(signal.command)
         {
@@ -668,16 +678,8 @@ function schedule_threads()
     for(var t in spawn)
     {
         var thread = spawn[t]
-        try
-        {
-            if (spin_thread(thread, tick))
-                threads_iterated++
-        }
-        catch(ex)
-        {
-            thread.state = ThreadState.Exception
-            OS.log_error("Error running thread "+style_os_symbol(thread.path)+": " + ex + "\n" + ex.stack);
-        }
+        if (spin_thread(thread, tick))
+            threads_iterated++
     }
     
     for(var i in dead_threads)

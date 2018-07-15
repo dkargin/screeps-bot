@@ -123,6 +123,9 @@ class RoomData
 {
 	constructor(name)
 	{
+	    if (!_.isString(name))
+	        throw new Error("RoomData.constructor invalid name, it should be a string, not " + name)
+	        
 		console.log("Creating RoomData for " + name + " at tick " + Game.time)
 		this.name = name
 		Memory.rooms = Memory.rooms || {}
@@ -136,6 +139,9 @@ class RoomData
 			mines: {}, 
 			economy:{},
 			lairs:{},
+			mine_version: ROOM_DATA_MINES_VERSION,
+			terrain_version: ROOM_DATA_TERRAIN_VERSION,
+			version: ROOM_DATA_VERSION,
 		}
 		_.defaults(info, def)
 
@@ -145,6 +151,7 @@ class RoomData
 
 		if(!info.terrain || info.terrain.length != lim)
 		{
+		    console.log(" - initializing terrain")
 			info.terrain = new Array(lim)
 			for(var i = 0; i < lim; i++)
 				info.terrain[i] = 0
@@ -152,6 +159,7 @@ class RoomData
 
 		if(!info.spots || info.spots.length != lim)
 		{
+		    console.log(" - initializing spots")
 			info.spots = new Array(lim)
 			for(var i = 0; i < lim; i++)
 				info.spots[i] = 0
@@ -163,7 +171,7 @@ class RoomData
 	/**
 	 * Get attached room info from persistent memory
 	 */
-	get_info()
+	get_persistent_info()
 	{
 		return Memory.rooms[this.name]
 	}
@@ -204,6 +212,7 @@ class RoomData
 		}
 		return result
 	}*/
+	
 	/**
 	 * Check whether room is available for scanning
 	 */
@@ -217,38 +226,42 @@ class RoomData
 	 */
 	get_terrain(x,y)
 	{
-		var info = this.get_info()
+	    // TODO: Get data from memory cache
+		var info = this.get_persistent_info()
 		return info.terrain[x + y*50]
 	}
 
 	set_terrain(x,y, t)
 	{
 		if(!Number.isInteger(t))
-			raise("RoomData.set_terrain("+x+","+y + ","+t + ") - invalid terrain type")
-		var info = this.get_info()
+			throw new Error("RoomData.set_terrain("+x+","+y + ","+t + ") - invalid terrain type")
+		var info = this.get_persistent_info()
 		info.terrain[x+y*50] = t
 	}
 
+    /**
+     * Get building spot
+     */
 	get_spot(x,y)
 	{
-		var info = this.get_info()
+		var info = this.get_persistent_info()
 		return info.spots[x+y*50]
 	}
 
 	set_spot(x,y, s)
 	{
 		if(!Number.isInteger(s))
-			raise("RoomData.set_terrain("+x+","+y + ","+s + ") - invalid spot type")
+			throw new Error("RoomData.set_terrain("+x+","+y + ","+s + ") - invalid spot type")
 		
 		//console.log("Setting spot pos="+x+":" + y + " to=" + s)
-		var info = this.get_info()
+		var info = this.get_persistent_info()
 		info.spots[x+y*50] = s
 	}
 
 	clear_spots()
 	{
 		console.log("RoomData("+this.name+")::clear_spots()")
-		var info = this.get_info()
+		var info = this.get_persistent_info()
 		var len = info.spots.length
 		for(var i = 0; i < len; i++)
 			info.spots[i] = SPOT.FREE
@@ -259,7 +272,8 @@ class RoomData
 	 */
 	is_explored()
 	{
-		var info = this.get_info()
+		var info = this.get_persistent_info()
+		return !_.isNull(info)
 	}
 	
 	read_structures()
@@ -271,7 +285,7 @@ class RoomData
 	 */
 	read_terrain()
 	{
-		var info = this.get_info()
+		var info = this.get_persistent_info()
 		/// Do not read room data if we have already one
 		if(info.terrain_version && info.terrain_version == ROOM_DATA_TERRAIN_VERSION)
 		{
@@ -331,12 +345,14 @@ class RoomData
 	/// Calculates room logistics center
 	calc_logistics_center(info)
 	{
+	    // Consider storage to be a center
 		var objs=this.room.find(FIND_STRUCTURES, {filter: { structureType: STRUCTURE_STORAGE }})
 		if(objs.length > 0)
 		{
 			return [objs[0].pos.x, objs[0].pos.y]
 		}
 
+        // Consider spawn to be a center
 		objs = this.room.find(FIND_STRUCTURES, {filter: { structureType: STRUCTURE_SPAWN }})
 		if(objs.length > 0)
 		{
@@ -351,7 +367,7 @@ class RoomData
 	get_logistics_center(info)
 	{
 		if(!info)
-			info = this.get_info()
+			info = this.get_persistent_info()
 		return new RoomPosition(info.center[0], info.center[1], this.name)
 	}
 
@@ -417,6 +433,7 @@ class RoomData
 		this.mark_area_1(mine.x, mine.y, iterator)
 	}
 	
+	// TODO: Make this function reentrable, without references to yieldOS
 	*process_mines(info)
 	{
 		console.log("Mine version="+info.mine_version + " D="+JSON.stringify(info))
@@ -526,7 +543,7 @@ class RoomData
 		}
 		else
 		{
-			raise("ERROR: no valid spot for upgrader chest")
+			throw new Error("ERROR: no valid spot for upgrader chest")
 		}
 
 		var cpos = this.get_logistics_center(info)
@@ -541,7 +558,7 @@ class RoomData
 		}
 		else
 		{
-			raise("ERROR: failed to find best path for upgrader spots")
+			throw new Error("ERROR: failed to find best path for upgrader from " + JSON.stringify(cpos) + " to " + JSON.stringify(closest))
 		}		
 
 		var roomdata = this
@@ -565,7 +582,7 @@ class RoomData
 		console.log("Started room " + this.name + " analysis")
 		this.read_terrain()
 		
-		var info = this.get_info()
+		var info = this.get_persistent_info()
 		
 		info.center = this.calc_logistics_center(info)
 
@@ -612,7 +629,7 @@ class RoomData
 					stat[name] = 1
 			}
 		}
-		//console.log("Room spot statistics: " + JSON.stringify(stat))
+		console.log("Room spot statistics: " + JSON.stringify(stat))
 	}
 
 	/// Run wave algorithm to generate distance distance map
@@ -837,16 +854,22 @@ function append_table(result, b)
 }
 
 /**
- * Get number of mining spots
+ * Get number of mining spots in this room
  */
-Room.prototype.get_mine_spots = function(force)
+global.get_mine_spots = function(rname, force)
 {
-	if(!this.memory.last_mine_calc)
-		this.memory.last_mine_calc = Game.time
-	
+    if (!_.isString(rname))
+        throw "get_mine_spots: Should provide room name"
+	if(!this.last_mine_calc)
+		this.last_mine_calc = Game.time
+		
+	var roomdata = get_room_data(rname)
+	var info = roomdata.get_persistent_info()
+	/*
 	var spots = 0
-	if(force || (Game.time - this.memory.last_mine_calc > 10))
+	//if(force || (Game.time - this.last_mine_calc > 10))
 	{
+	    console.log("Recalculating mine spots for a room "+this.name)
 		for(var s in Memory._sources)
 		{
 			var source = Game.getObjectById(s)
@@ -854,9 +877,10 @@ Room.prototype.get_mine_spots = function(force)
 				continue
 			spots += source.memory.spots
 		}
-	}
+	}*/
 	
-	return spots
+	console.log("Searching for mines in " + rname + ": " + JSON.stringify(info.mines))
+	return _.size(info.mines)
 }
 
 /**
@@ -917,19 +941,14 @@ Room.prototype.remove_build_sites = function()
     }
 }
 
-var Utils = {
-	init : function()
-    {
-        
-    },
-    get_room_data : function(name)
-    {
-    	if(!Database[name])
-    		Database[name] = new RoomData(name)
-    	return Database[name]
-    },
+global.get_room_data = function(name)
+{
+    if (!_.isString(name))
+        throw("get_room_data(" + name + ") - name should be a string") 
+    if(!Database[name])
+		Database[name] = new RoomData(name)
+	return Database[name]
 }
-
 
 function getRandomFreePos(startPos, distance) 
 {
@@ -966,4 +985,4 @@ global.build_path = function(from, to)
 }
 
 
-module.exports = Utils;
+module.exports = {};

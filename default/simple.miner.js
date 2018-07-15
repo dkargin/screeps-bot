@@ -127,7 +127,7 @@ module.exports = new class extends CreepBase.Behaviour
 		var tier = room.get_tech_tier()
 		if(tier >= 3)
 			return 2	/// TODO: number of mines
-		return room.get_mine_spots()
+		return get_mine_spots(room.name)
 	}
 	
 	init(creep)
