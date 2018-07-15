@@ -21,7 +21,7 @@ function simple_ai_init()
 
 function simple_ai_run()
 {
-    console.log("simple.ai starting tick " + Game.time)
+    //console.log("simple.ai starting tick " + Game.time)
 	var errors = []
 	var population = {}
 	

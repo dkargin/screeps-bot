@@ -178,6 +178,10 @@ function memory_init(user_memory_version)
         },
     })
     
+    // Create tables for the memory. They can not be present
+    Memory.os = Memory.os || {}
+    Memory.settings = Memory.settings || {}
+    
     // Init settings page
     _.defaults(Memory.settings, 
     {
@@ -188,7 +192,7 @@ function memory_init(user_memory_version)
     // Init OS data page
     var os_mem_default = {session_id: 0, start_tick: Game.time, mem_version: OS_MEMORY_VERSION, threads: {}}
     
-    _.defaults(Memory.os, os_mem_default)
+    Memory.os = _.defaults(Memory.os, os_mem_default)
     
     if (Memory.os.mem_version != OS_MEMORY_VERSION)
     {
@@ -395,7 +399,7 @@ class ThreadContext
         this.conditions = []
         
         // Load statistics from the memory. Should be done at thread creation stage
-        this.stat = _.defaults(_.get(Memory.os, ['threads', this.path]), {
+        this.stat = _.defaults(_.get(Memory, ['os','threads', this.path], {}), {
             syscalls:0,
             waits:0,
             cpu:0,

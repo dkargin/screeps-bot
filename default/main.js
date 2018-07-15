@@ -31,6 +31,20 @@ function init_room_corps(room)
     var upgradeCorp = new brain.Corp.Build(room)
 }
 
+
+function* terrain_inspector()
+{
+    for(var r in Game.rooms)
+    {
+        var room = Game.rooms[r]
+        console.log("Analysing room " + r)
+        
+        var rdata = get_room_data(r)
+        yield* rdata.map_analyser_thread() 
+        yield* OS.break();
+    }
+}
+
 function draw_room_data()
 {
     for(var r in Game.rooms)
@@ -39,9 +53,6 @@ function draw_room_data()
         rdata.draw_room_info()
     }   
 }
-
-var analyser
-var analyserComplete = false
 
 var run_tower = function(tower)
 {
@@ -58,19 +69,6 @@ var run_tower = function(tower)
         if(closestDamagedStructure.length > 0) {
             tower.repair(closestDamagedStructure[0]);
         }
-    }
-}
-
-function* terrain_inspector()
-{
-    for(var r in Game.rooms)
-    {
-        var room = Game.rooms[r]
-        console.log("Analysing room " + r)
-        
-        var rdata = get_room_data(r)
-        yield* rdata.map_analyser_thread() 
-        yield* OS.break();
     }
 }
 
@@ -113,25 +111,6 @@ function auto_spawn_renew()
     }
 }
 
-// Typical game loop
-var game_loop = function()
-{
-    if(analyser)
-    {
-        var y = analyser.next()
-        if(y.done)
-        {
-            analyser = undefined
-        }
-        console.log("Got from generator: " + y.value + " done=" + y.done + " CPU=" + Game.cpu.getUsed() )   
-    }
-
-    draw_room_data()
-	
-    SimpleAI.run()
-    //Corps.update()
-}
-
 // This function will be called on system startup
 // We should register all necessary threads and tasks here.
 // We will not visit this function until next restart.
@@ -146,7 +125,9 @@ function* init_system()
     SimpleAI.init()
     var pid = yield* OS.create_thread(terrain_inspector(), 'terrain_inspector')
     yield* OS.wait({pid: pid})
-    yield* OS.create_loop(game_loop, "/main")
+    
+    yield* OS.create_loop(SimpleAI.run, "/main")
+    yield* OS.create_loop(draw_room_data, "room_drawer", {priority:100})
     yield* OS.create_loop(tower_updater, 'towers')
     yield* OS.create_loop(auto_spawn_renew, 'spawn_renew')
     

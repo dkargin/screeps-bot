@@ -30,9 +30,9 @@ var get_spot_name = function(spot)
 	return 'Unknown'+spot
 }
 /// Versions for data storage
-const ROOM_DATA_VERSION = 1
-const ROOM_DATA_TERRAIN_VERSION = 3
-const ROOM_DATA_MINES_VERSION = 4
+const ROOM_DATA_VERSION = 2
+const ROOM_DATA_TERRAIN_VERSION = 5
+const ROOM_DATA_MINES_VERSION = 5
 
 
 /// Room roles
@@ -128,13 +128,12 @@ class RoomData
 	        
 		console.log("Creating RoomData for " + name + " at tick " + Game.time)
 		this.name = name
+		
 		Memory.rooms = Memory.rooms || {}
+		Memory.rooms[name] = Memory.rooms[name] || {}
 		
-		Memory.rooms[this.name] = Memory.rooms[this.name] || {}
+		this.room = Game.rooms[name]
 		
-		var info = Memory.rooms[this.name]
-		
-		this.room = Game.rooms[this.name]
 		var def = {
 			mines: {}, 
 			economy:{},
@@ -143,11 +142,11 @@ class RoomData
 			terrain_version: ROOM_DATA_TERRAIN_VERSION,
 			version: ROOM_DATA_VERSION,
 		}
-		_.defaults(info, def)
+		
+		var info = _.defaults(Memory.rooms[name], def)
+		Memory.rooms[name] = info
 
 		var lim = 50*50
-
-		info = Memory.rooms[this.name]
 
 		if(!info.terrain || info.terrain.length != lim)
 		{
@@ -166,6 +165,8 @@ class RoomData
 		}
 
 		this.structures = this.structures || []
+		this.terrain_viz = new RoomVisual(name)
+		this.stat_viz = new RoomVisual(name)
 	}
 	
 	/**
@@ -317,7 +318,7 @@ class RoomData
 			}
 		}
 		
-		/// 2. Read data aboud room structures
+		/// 2. Read data about room structures
 		if(this.room)
 		{
 			var filter = function(mine)
@@ -449,7 +450,6 @@ class RoomData
 		yield* OS.break()
 		for(var m in info.mines)
 		{
-			
 			this.place_mine_spots(info.mines[m], info)
 			yield* OS.break()
 		}
@@ -476,6 +476,7 @@ class RoomData
 	find_best_upgrader_chest_spot(info)
 	{
 		var uspots = []
+		
 		/// 1. Search for the best upgrader spot
 		for(var i in contour_2)
 		{
@@ -629,7 +630,36 @@ class RoomData
 					stat[name] = 1
 			}
 		}
-		console.log("Room spot statistics: " + JSON.stringify(stat))
+		//console.log("Room spot statistics: " + JSON.stringify(stat))
+		this.update_stat_visuals()
+	}
+	
+	update_stat_visuals()
+	{
+	    var viz = this.stat_viz
+	    viz.clear()
+	    var index = 0
+	    var text_left = 1
+	    var style = {align:"left"}
+	    var room = this.room
+	    if (room)
+	    {
+	        var caps = room.get_capabilities(true)
+	        viz.text("caps:", text_left, index++, style)
+	        for (var i in caps)
+	            viz.text(" -"+i+":"+caps[i], text_left, index++, style)
+	        
+	        var tier = room.get_tech_tier()
+	        viz.text("tier:"+tier, text_left, index++, style)
+	        var limit = room.energyCapacityAvailable
+	        viz.text("elimit:"+limit, text_left, index++, style)
+	        
+	    }    
+	    //console.log("AI Tick " + Game.time + " room " + rname + " pop=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier() + " cap="+room.energyCapacityAvailable)
+	    for(var key in this.stat)
+	    {
+	        
+	    }
 	}
 
 	/// Run wave algorithm to generate distance distance map
@@ -879,7 +909,7 @@ global.get_mine_spots = function(rname, force)
 		}
 	}*/
 	
-	console.log("Searching for mines in " + rname + ": " + JSON.stringify(info.mines))
+	//console.log("Searching for mines in " + rname + ": " + JSON.stringify(info.mines))
 	return _.size(info.mines)
 }
 
