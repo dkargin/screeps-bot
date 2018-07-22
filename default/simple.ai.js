@@ -6,6 +6,9 @@ module.exports = {}
 
 require('creepbase')
 var HoP = require('spawner')
+
+
+
 /// Simple behaviours from tutorial
 var simpleBehaviours =
 {

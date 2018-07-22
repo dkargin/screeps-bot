@@ -133,7 +133,7 @@ function* init_system()
     yield* OS.wait({pid: pid})
     
     yield* OS.create_loop(SimpleAI.run, "/main")
-    yield* OS.create_loop(draw_room_data, "room_drawer", {priority:100})
+    //yield* OS.create_loop(draw_room_data, "room_drawer", {priority:100})
     yield* OS.create_loop(tower_updater, 'towers')
     yield* OS.create_loop(auto_spawn_renew, 'spawn_renew')
     

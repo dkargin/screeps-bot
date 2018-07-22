@@ -1,0 +1,11 @@
+{ 
+  "name": "goosebot", 
+  "version": "1.0.0", 
+  "description": "Another screeps bot", 
+  "main": "main.js", 
+  "scripts": { 
+    "start": "node server.js" 
+  }, 
+  "author": "Dmitry Kargin", 
+  "license": "MIT" 
+}

@@ -11,7 +11,7 @@ function filter_repair_targets(obj)
 }
 
 
-var Actions =
+var BuilderActions =
 {	
 	build : function(creep, target)
 	{
@@ -24,11 +24,6 @@ var Actions =
 	}
 }
 
-/// Mine resources
-function process_mine(creep)
-{
-
-}
 
 function process_job(creep)
 {
@@ -58,7 +53,7 @@ function process_job(creep)
 				creep.moveTo(target);
 			else
 			{
-				var action = Actions[creep.memory.action]
+				var action = BuilderActions[creep.memory.action]
 				
 				if(action)
 				{
