@@ -1,8 +1,20 @@
+// Behaviour table. Maps creep.behaviour to a specific class handler
+global.Behaviours = {}
+
+global.list_behaviours = function()
+{
+    var result = "{"
+    for(var i in Behaviours)
+    {
+        result += (i + "=" + Behaviours[i] + ";")
+    }
+    return result + "}"
+}
 
 /// Change current state
-Creep.prototype.set_state = function(new_state)
+Creep.prototype.setState = function(new_state)
 {
-	if(!this.get_state_handler(new_state))
+	if(!this.getStateHandler(new_state))
 	{
 		throw(this.name + " switch to state without handler: " + new_state)
 	}
@@ -11,18 +23,18 @@ Creep.prototype.set_state = function(new_state)
 	//console.log(this.name + ' switched state to ' + new_state)
 }
 
-Creep.prototype.log = function(msg) 
-{
-
-}
-
-/// Get current state
-Creep.prototype.get_state = function()
+// Get current state. This state is stored in the memory
+Creep.prototype.getState = function()
 {
 	return this.memory.state 
 }
 
-/// Get cached target position
+Creep.prototype.log = function(msg)
+{
+    
+}
+
+// Get cached target position
 Creep.prototype.get_target_pos = function()
 {
 	var raw_target = this.memory.target_pos
@@ -42,13 +54,32 @@ Creep.prototype.rangeto = function(obj)
 {
 	return distance(this.pos, Game.getObjectPos(obj))
 }
+
+// Get behaviour
+Creep.prototype.getBehaviour = function()
+{
+    return _.get(global.Behaviours, this.memory.role)
+}
+
+Creep.prototype.getCapabilities = function()
+{
+    var behaviour = this.getBehaviour();
+    if (behaviour)
+        return behaviour.getCapabilities(this);
+    else
+    {
+        throw new Error("No behaviour for creep name=" + this.name + " role=" + this.memory.role + "\n Behaviours=" + list_behaviours())
+    }
+    return null
+}
+
 /// Check whether creep should move closer to a target
 function check_should_move(creep)
 {
 	var target_pos = get_target_pos(creep)
 }
 /// Set target
-Creep.prototype.set_target = function(target, action)
+Creep.prototype.setTarget = function(target, action)
 {
 	this.memory.target = target.id
 	
@@ -59,7 +90,7 @@ Creep.prototype.set_target = function(target, action)
 		this.memory.action = action
 }
 
-Creep.prototype.has_target = function()
+Creep.prototype.hasTarget = function()
 {
 	return ('target' in this.memory)
 }
@@ -67,18 +98,18 @@ Creep.prototype.has_target = function()
 ///FIND_STRUCTURES
 Creep.prototype.find_closest_target = function (type, filter, action)
 {
-	this.clear_target()
+	this.clearTarget()
 	//console.log(this.name + " finding closest target of type " + type)
 	var target = this.pos.findClosestByPath(type, {filter: filter});
 	if(target)
 	{
-		this.set_target(target, action)
+		this.setTarget(target, action)
 		return true
 	}
 	return false
 }
 
-Creep.prototype.clear_target = function()
+Creep.prototype.clearTarget = function()
 {
 	if('target' in this.memory)
 		delete this.memory.target
@@ -112,7 +143,7 @@ Object.defineProperty(Creep.prototype, 'custom_handlers', {
 
 /// Get method to handle current state
 /// Tries to get creep's own override, and after global state handlers
-Creep.prototype.get_state_handler = function(state)
+Creep.prototype.getStateHandler = function(state)
 {
 	if(this.custom_handlers && this.custom_handlers[state])
 	{
@@ -135,7 +166,7 @@ function handlers_stringify(handlers)
 	return JSON.stringify(result)
 }
 
-Creep.prototype.override_states = function(ov)
+Creep.prototype.overrideStates = function(ov)
 {	
 	var handlers = this.custom_handlers
 	for(var state in ov)
@@ -148,10 +179,10 @@ Creep.prototype.override_states = function(ov)
 
 /// Run single FSM step
 ///  returns whether we need to break FSM update cycle
-Creep.prototype.fsm_step = function()
+Creep.prototype.fsmStep = function()
 {
-	var state = this.get_state()
-	var handler = this.get_state_handler(state)
+	var state = this.getState()
+	var handler = this.getStateHandler(state)
 	if(!handler)
 	{
 		console.log(this.name + " has no handler for state " + state)
@@ -161,37 +192,18 @@ Creep.prototype.fsm_step = function()
 	return handler(this)
 }
 
-Creep.prototype.process_fsm = function()
-{
-	//creep.get_capabilities = this.get_capabilities
-    if(!('state' in this.memory))
-    {
-    	console.log("Implanting state to a creep")
-    	this.set_state('Idle')
-    }
-    //if(Memory.debug && Memory.debug.simple_miner)
-    	//
-    //console.log("Processing " + this.name + " role=" + this.memory.role + " state=" + this.get_state())
-    
-    for(var i = 0; i < 1; i++)
-    {
-        if(!this.fsm_step())
-        	break
-    }
-}
-
 /** Process generic creep logic. After that switch to job logic **/
 function process_idle(creep)
 {
 	/// Automatically switch to 'Job' state
-	creep.set_state('Job')
+	creep.setState('Job')
 }
 
 function process_free(creep)
 {
 	console.log(creep.name + " role=" + creep.memory.role + " got default Free jandler")
 	// Automatically switch to 'Job' state
-	creep.set_state('Job')
+	creep.setState('Job')
 	/// TODO: move to spawn[0] position
 }
 
@@ -235,24 +247,41 @@ module.exports =
 	/// Nothing especial here
 	Behaviour : class 
 	{
-		get_capabilities() { throw "NotImplemented" }	// to be overriden
+	    constructor()
+	    {
+	        var r = this.role()
+	        Behaviours[r] = this
+	        console.log("Behaviour for role=" + r + " is done")
+	    }
+	    
+		getCapabilities() { throw new Error("NotImplemented") }	// to be overriden
 		
-		init(creep) { throw "NotImplemented" }			// to be overriden
+		init(creep) { throw new Error("NotImplemented") }			// to be overriden
 		
 		run(creep, first) 
 	    {
-			creep.get_capabilities = this.get_capabilities
-			this.init(creep)
-			
-	    	if(first || !creep.memory.initialized)
+	        if (!(creep instanceof Creep))
+	            throw new Error("Behaviour.run("+creep + ") - invalid object provided")
+	            
+	    	if(first || _.get(creep.memory, 'session') != get_session_id())
 	    	{
-	    		//console.log("!!!!!! Initializing first tick for " + creep.name)
-				//this.init(creep)
-				creep.memory.initialized = true
+	    	    this.init(creep)
+				creep.memory.session = get_session_id()
 	    	}
 	    	
-	    	creep.process_fsm()
-	    	//console.log("Global handlers=" + JSON.stringify(CustomHandlers))
+	    	
+	    	// Spin creep's FSM 
+	    	if(!('state' in creep.memory))
+            {
+            	console.log("Implanting state to a creep")
+            	creep.setState('Idle')
+            }
+            
+            for(var i = 0; i < 1; i++)
+            {
+                if(!creep.fsmStep())
+                	break
+            }
 	    }
 	},
 }

@@ -1,3 +1,5 @@
+module.exports = {};
+
 /// Terrain type
 const TERRAIN_WALL = 1
 const TERRAIN_SWAMP = 2
@@ -114,6 +116,71 @@ global.remove_debug = function()
 
 var Database = {}
 
+// Generic 2d grid
+class Grid
+{
+    constructor(width, initial=null)
+    {
+        this.width = width
+        this.data = new Array(width*width)
+        for (var i = 0; i < width*width; i++)
+            this.data[i] = initial
+    }
+    
+    get(x,y)
+	{
+	    // TODO: Get data from memory cache
+		//var info = this.get_persistent_info()
+		this.data[x + y*this.width]
+	}
+
+	set(x, y, t)
+	{
+		//if(!Number.isInteger(t))
+		//	throw new Error("RoomData.set_terrain("+x+","+y + ","+t + ") - invalid terrain type")
+		//var info = this.get_persistent_info()
+		this.data[x+y*this.width] = t
+	}
+	
+	// Serializes grid to string
+	serialize()
+	{
+		var output = ""
+		var width = this.width
+		for(var y = 0; y < width; y++)
+		{
+			var row = ""
+			for(var x = 0; x < width; x++)
+			{
+				//row[x] = data[x + y*50]
+				row = row + this.data[x+y*50]
+			}
+			row = row + '\n'
+			output = output + row
+		}
+		return output
+	}
+	
+	// Deserialize string. Actual size is calculated by getting number of rows
+	deserialize(raw_data)
+	{
+		var rows = raw_data.split('\n')
+		var width = rows.length
+		var result = new Array(width*width)
+		var i = 0
+		for(var y = 0; y < width; y++)
+		{
+			var row = rows[y]
+			var lim = Math.min(width, row.length)
+			for(var x = 0; x < lim; x++)
+				result[i++] = row[x]
+		}
+		
+		this.data = result
+		this.width = width
+	}
+}
+
 /**
  * RoomData class
  * contains cache for room contents, even for a room that is not accessible, 
@@ -167,6 +234,7 @@ class RoomData
 		this.structures = this.structures || []
 		this.terrain_viz = new RoomVisual(name)
 		this.stat_viz = new RoomVisual(name)
+		this.costmap = Array(50*50)
 	}
 	
 	/**
@@ -177,43 +245,6 @@ class RoomData
 		return Memory.rooms[this.name]
 	}
 
-	/*
-	serializeArray(data)
-	{
-		var data = ""
-		for(var y = 0; y < 50; y++)
-		{
-			var row = ""
-			for(var x = 0; x < 50; x++)
-			{
-				//row[x] = data[x + y*50]
-				row = row + data[x+y*50]
-			}
-			row = row + '\n'
-			data = data + row
-		}
-		return data
-	}	
-
-	deserializeArray(raw_data)
-	{
-		var rows = raw_data.split('\n')
-		if(rows.length < 50)
-		{
-			console.log("ERROR: cannot deserialize data")
-			return
-		}
-		var result = new Array(50*50)
-		for(var y = 0; y < 50; y++)
-		{
-			var row = rows[y]
-			var lim = Math.min(50, row.length)
-			for(var x = 0; x < lim; x++)
-				result[i++] = row[x]
-		}
-		return result
-	}*/
-	
 	/**
 	 * Check whether room is available for scanning
 	 */
@@ -306,6 +337,8 @@ class RoomData
 	            	info.terrain[x+row] = TERRAIN_WALL
 	            else if(raw_tile == 'swamp')
 	            	info.terrain[x+row] = TERRAIN_SWAMP
+	            else
+	                info.terrain[x+row] = 0
 
 	            info.spots[x+row] = 0
 
@@ -344,9 +377,105 @@ class RoomData
 
 
 	/// Calculates room logistics center
-	calc_logistics_center(info)
+	*calc_logistics_center(info)
 	{
-	    // Consider storage to be a center
+	    var terrain = info.terrain
+	    
+	    // Returns walking cost for specified tile
+	    var costmap = new Array(50*50)
+	    for(var i = 0; i < 50*50; i++)
+	    {
+	        var tile = terrain[i]
+		    if (tile == 0)
+		        costmap[i] = 1
+		    else if (tile == TERRAIN_SWAMP)
+		        costmap[i] = 5
+		    else costmap[i] = 100
+	    }
+	    
+		
+		var wave = new MultiWave(costmap, 50)
+		var mines = []
+		
+		for(var i in info.mines)
+		{
+		    var mine = info.mines[i]
+		    var mine_tag = "mine@"+i
+		    mines.push(mine_tag)
+		    wave.addWave(mine.x, mine.y, mine_tag, 0)
+		}
+		
+		wave.addWave(info.controller.x, info.controller.y, "controller", 0)
+		
+		var iterations = 0
+		var period = 10;
+		do
+		{
+		    var result = wave.runOnce();
+		    var total = result.total
+		    if (total == 0)
+		        break;
+		    iterations++;
+		    console.log("Wave analyser discovered " + total + " nodes at iteration" + iterations + " colors=" + JSON.stringify(result.colors))
+		    if (iterations > period)
+		    {
+		        yield* OS.break();    
+		        iterations = 0;
+		    }
+		}while(true)
+		
+		console.log("Done after " + iterations + " iterations");
+		
+		var best
+		var bestCost = 1000
+		var searched = 0;
+		
+		var width = 50;
+		
+		var calcCost = function(costs)
+		{
+		    var sources = 0
+		    for(var i in mines)
+		    {
+		        var node = costs[mines[i]];
+		        if (!node)
+		            continue;
+		        sources = sources + node.cost
+		    }
+		    
+		    var consumers = 0
+		    if ('controller' in costs)
+		    {
+		        consumer = consumers + costs['controller']
+		    }
+		    
+		    return sources - consumer
+		}
+		
+		for(var x = 0; x < width; x++)
+		{
+    	    for(var y = 0; y < width; y++)
+    	    {
+    	        // This is a map color->node
+    	        var nodes = wave.getNodes(x,y)
+    	        var cost = calcCost(nodes)
+    	        
+    	        this.costmap[x+y*width] = cost
+    	        
+    	        if (cost < bestCost)
+    	        {
+    	            bestCost = cost;
+    	            best = [x, y, cost]
+    	        }
+    	        
+    	        searched ++;
+    	    }
+		}
+		
+		if (best)
+		    console.log("Best center x="+best[0]+" y=" + best[1] + " cost="+best[2])
+		
+		// Consider storage to be a center
 		var objs=this.room.find(FIND_STRUCTURES, {filter: { structureType: STRUCTURE_STORAGE }})
 		if(objs.length > 0)
 		{
@@ -359,8 +488,7 @@ class RoomData
 		{
 			return [objs[0].pos.x, objs[0].pos.y]
 		}
-
-		/// TODO: calculate proper logistics center using wave distance generator
+		
 		return [25, 25]
 	}
 
@@ -379,10 +507,8 @@ class RoomData
 	}
 	
 	/// Occupies map cells for specified mine
-	place_mine_spots(mine, info)
+	place_mine_spots(mine, info, cpos)
 	{
-		/// Get room center position
-		var cpos = this.get_logistics_center(info)
 		/// Get path to a mine
 		var path = cpos.findPathTo(this.room.getPositionAt(mine.x, mine.y), this.get_road_opts())
 
@@ -448,9 +574,13 @@ class RoomData
 		this.clear_spots()
 		
 		yield* OS.break()
+		
+		/// Get room center position
+		var cpos = this.get_logistics_center(info)
+		
 		for(var m in info.mines)
 		{
-			this.place_mine_spots(info.mines[m], info)
+			this.place_mine_spots(info.mines[m], info, cpos)
 			yield* OS.break()
 		}
 
@@ -585,7 +715,7 @@ class RoomData
 		
 		var info = this.get_persistent_info()
 		
-		info.center = this.calc_logistics_center(info)
+		info.center = yield* this.calc_logistics_center(info)
 
 		this.place_spawn_spots(info)
 		
@@ -610,10 +740,13 @@ class RoomData
 		//console.log("Drawing room " + this.room.name + " data")
 		var vis = this.room.visual
 		var stat = {}
+		
+		
 		for(var y = 0; y < 49; y++)
 		{
 			for(var x = 0; x < 49; x++)
 			{
+			    /*
 				var spot = this.get_spot(x,y)
 				switch(spot)
 				{
@@ -628,10 +761,14 @@ class RoomData
 					stat[name]++
 				else
 					stat[name] = 1
+					*/
+				var cost = this.costmap[x+y*50]
+				if (cost)
+				    vis.text(cost, x, y);
 			}
 		}
-		//console.log("Room spot statistics: " + JSON.stringify(stat))
-		this.update_stat_visuals()
+		
+		//this.update_stat_visuals()
 	}
 	
 	update_stat_visuals()
@@ -655,7 +792,7 @@ class RoomData
 	        viz.text("elimit:"+limit, text_left, index++, style)
 	        
 	    }    
-	    //console.log("AI Tick " + Game.time + " room " + rname + " pop=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier() + " cap="+room.energyCapacityAvailable)
+	    
 	    for(var key in this.stat)
 	    {
 	        
@@ -931,23 +1068,14 @@ Room.prototype.get_capabilities = function(force)
 	{
 		this.memory.capabilities = {}
 		var result = this.memory.capabilities
-		this.find(FIND_MY_CREEPS, 
+		var creeps = this.find(FIND_MY_CREEPS);
+		
+		for(var i in creeps)
 		{
-		    filter: function(creep) 
-		    {
-		    	if(creep.get_capabilities)
-		    	{
-		    		var caps = creep.get_capabilities()
-		    		//console.log("Creep " + creep.name + " has caps: " + JSON.stringify(caps))
-		    		append_table(result, caps)
-		    	}
-		    	else
-		    	{
-		    		console.log("Creep " + creep.name + " has no standard capabilities")
-		    	}
-		    	return false
-		    }
-		});
+		    var creep = creeps[i]
+		    var caps = creep.getCapabilities()
+	    	append_table(result, caps)
+		}
 		
 		this.memory.last_caps_calc = Game.time
 		
@@ -1014,5 +1142,332 @@ global.build_path = function(from, to)
     }
 }
 
+function getAdjacent(x, y, width)
+{
+    var adjacent = []
+    for(var y0 = y-1; y0 <= y+1; y0++ )
+    {
+        for(var x0 = x-1; x0 <= x+1; x0++ )
+        {
+            if (x0 < 0 || x0 >= width)
+                continue;
+            if (y0 < 0 || y0 >= width)
+                continue
+            if (x0 == x && y0 == y)
+                continue
+            adjacent.push(x0 + y0 * width);
+        }
+    }
+    return adjacent
+}
 
-module.exports = {};
+class MultiWave
+{
+    //Initializes a wave
+    //@param terrain - flat 2d array with terrain costs
+    //@param width - terrain width
+    constructor(terrain, width)
+    {
+        this.terrain = terrain
+        this.width = width
+        
+        // Wave grid
+        this.grid = []
+        // Map from color to a grid index
+        this.colors = {}
+    }
+    
+    addWave(x, y, color, cost)
+    {
+        var index = 0
+        if (color in this.colors)
+        {
+            index = this.colors[color]
+        }
+        else
+        {
+            index = this.grid.length
+            this.grid.push(new Array(this.width*this.width))
+            this.colors[color] = index
+        }
+        
+        console.log("Added new color="+color+" to multiwave wave at " + [x,y] + " index=" + index)
+        var grid = this.grid[index]
+        grid[x + y*this.width] = {x:x, y:y, cost:cost, prev:null, initial:true}
+    }
+    
+    // Simplistic wave propagation. No queue.
+    //@returns number of nodes processed
+    runOnce()
+    {
+        var width = this.width
+        var terrain = this.terrain
+        var grids = this.grid
+        var processed_total = 0
+        var processed = {}
+        
+        var numWaves = this.grid.length
+        
+        for (var i = 0; i < numWaves; i++)
+            processed[i] = 0
+        
+        for(var y = 0; y < width; y++)
+        {
+            for(var x = 0; x < width; x++)
+            {
+                var index = x+y*width
+                var cost = terrain[index]
+                if (cost < 0)
+                {
+                    continue;
+                }
+                
+                // Contains direct indexes in grid array
+                var adjacent = getAdjacent(x, y, width)
+                
+                for(var i = 0; i < numWaves; i++)
+                {
+                    var grid = grids[i]
+                    if (!grid)
+                        throw new Error("no grid for index" + i)
+                        
+                    var node = grid[x+y*width]
+                
+                    if (!node)
+                        continue;
+                        
+                    for(var j in adjacent)
+                    {
+                        var adj = adjacent[j]
+                        
+                        var adjNode = grid[adj]
+                        var newcost = node.cost + cost
+                        if (adjNode)
+                        {
+                            if (adjNode.cost > newcost)
+                            {
+                                adjNode.cost = newcost;
+                                adjNode.from = node
+                                processed_total++
+                                processed[i] = processed[i] + 1
+                            }
+                        }
+                        else
+                        {
+                            console.log("Creating node color=" + i + " from ["+x+","+y+"] to adj="+adj + " cost="+newcost)
+                            grid[j] = {cost:newcost, from: node, initial:false}
+                            processed_total++
+                            processed[i] = processed[i] + 1
+                        }
+                    }
+                }
+            }
+        }
+        
+        return {total: processed_total, colors:processed}
+    }
+    
+    // Get final cost
+    // Returns a map {color->node}
+    getNodes(x, y)
+    {
+        var result = {}
+        for (var color in this.colors)
+        {
+            var grid = this.grid[this.colors[color]]
+            result[color] = grid
+        }
+        return result
+    }
+} // class MultiWave
+
+/**
+ * FastPriorityQueue.js : a fast heap-based priority queue  in JavaScript.
+ * (c) the authors
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * Speed-optimized heap-based priority queue for modern browsers and JavaScript engines.
+ *
+ * Usage :
+         Installation (in shell, if you use node):
+         $ npm install fastpriorityqueue
+
+         Running test program (in JavaScript):
+
+         // var FastPriorityQueue = require("fastpriorityqueue");// in node
+         var x = new FastPriorityQueue();
+         x.add(1);
+         x.add(0);
+         x.add(5);
+         x.add(4);
+         x.add(3);
+         x.peek(); // should return 0, leaves x unchanged
+         x.size; // should return 5, leaves x unchanged
+         while(!x.isEmpty()) {
+           console.log(x.poll());
+         } // will print 0 1 3 4 5
+         x.trim(); // (optional) optimizes memory usage
+ */
+"use strict";
+
+var defaultcomparator = function (a, b) {
+    return a < b;
+};
+
+// the provided comparator function should take a, b and return *true* when a < b
+class FastPriorityQueue
+{
+    constructor(comparator)
+    {
+        this.array = [];
+        this.size = 0;
+        this.compare = comparator || defaultcomparator;
+    }
+
+    // Add an element the the queue
+    // runs in O(log n) time
+    add(myval)
+    {
+        var i = this.size;
+        this.array[this.size] = myval;
+        this.size += 1;
+        var p;
+        var ap;
+        while (i > 0) {
+            p = (i - 1) >> 1;
+            ap = this.array[p];
+            if (!this.compare(myval, ap)) {
+                 break;
+            }
+            this.array[i] = ap;
+            i = p;
+        }
+        this.array[i] = myval;
+    };
+    
+    // replace the content of the heap by provided array and "heapifies it"
+    heapify(arr) {
+        this.array = arr;
+        this.size = arr.length;
+        var i;
+        for (i = (this.size >> 1); i >= 0; i--) {
+            this._percolateDown(i);
+        }
+    };
+    
+    // for internal use
+    _percolateUp(i) {
+        var myval = this.array[i];
+        var p;
+        var ap;
+        while (i > 0) {
+            p = (i - 1) >> 1;
+            ap = this.array[p];
+            if (!this.compare(myval, ap)) {
+                break;
+            }
+            this.array[i] = ap;
+            i = p;
+        }
+        this.array[i] = myval;
+    };
+    
+    
+    // for internal use
+    _percolateDown(i) {
+        var size = this.size;
+        var hsize = this.size >>> 1;
+        var ai = this.array[i];
+        var l;
+        var r;
+        var bestc;
+        while (i < hsize) {
+            l = (i << 1) + 1;
+            r = l + 1;
+            bestc = this.array[l];
+            if (r < size) {
+                if (this.compare(this.array[r], bestc)) {
+                    l = r;
+                    bestc = this.array[r];
+                }
+            }
+            if (!this.compare(bestc, ai)) {
+                break;
+            }
+            this.array[i] = bestc;
+            i = l;
+        }
+        this.array[i] = ai;
+    };
+    
+    // Look at the top of the queue (a smallest element)
+    // executes in constant time
+    //
+    // This function assumes that the priority queue is
+    // not empty and the caller is resposible for the check.
+    // You can use an expression such as
+    // "isEmpty() ? undefined : peek()"
+    // if you expect to be calling peek on an empty priority queue.
+    //
+    peek() {
+        return this.array[0];
+    };
+    
+    // remove the element on top of the heap (a smallest element)
+    // runs in logarithmic time
+    //
+    //
+    // This function assumes that the priority queue is
+    // not empty, and the caller is responsible for the check.
+    // You can use an expression such as
+    // "isEmpty() ? undefined : poll()"
+    // if you expect to be calling poll on an empty priority queue.
+    //
+    // For long-running and large priority queues, or priority queues
+    // storing large objects, you may  want to call the trim function
+    // at strategic times to recover allocated memory.
+    poll() {
+        var ans = this.array[0];
+        if (this.size > 1) {
+            this.array[0] = this.array[--this.size];
+            this._percolateDown(0 | 0);
+        } else {
+            this.size -= 1;
+        }
+        return ans;
+    };
+    
+    
+    // recover unused memory (for long-running priority queues)
+    trim() {
+        this.array = this.array.slice(0, this.size);
+    };
+    
+    // Check whether the heap is empty
+    isEmpty() {
+        return this.size === 0;
+    };
+}
+
+// just for illustration purposes
+var test_fpq = function () {
+    // main code
+    var x = new FastPriorityQueue(function (a, b) {
+        return a < b;
+    });
+    x.add(1);
+    x.add(0);
+    x.add(5);
+    x.add(4);
+    x.add(3);
+    while (!x.isEmpty()) {
+        console.log(x.poll());
+    }
+};
+
+if (require.main === module) {
+    test_fpq();
+}
+
+module.exports.FPQ = FastPriorityQueue;
+

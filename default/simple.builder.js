@@ -32,7 +32,7 @@ function process_mine(creep)
 
 function process_job(creep)
 {
-	if(!creep.has_target())
+	if(!creep.hasTarget())
 	{
 		//console.log(creep.name + " finding closest build target")
 		if(creep.find_closest_target(FIND_CONSTRUCTION_SITES, filter_build_targets, 'build'))
@@ -80,13 +80,18 @@ function process_job(creep)
 		}
 		else
 		{
-			creep.clear_target()
+			creep.clearTarget()
 		}		
 	}
 }
 
 module.exports = new class extends CreepBase.Behaviour
 {
+    constructor()
+    {
+        super()    
+    }
+    
 	role() { return 'simple.builder' }
 	
 	spawn(room)
@@ -114,19 +119,19 @@ module.exports = new class extends CreepBase.Behaviour
 		var caps = room.get_capabilities()
 		if(caps.mine == 0)
 			return 0
-		if(tier >= 1)
+		if(tier > 1)
 			return 2
 		return 0
 	}
 	
 	/// Return creep capabilities
-	get_capabilities()
+	getCapabilities(creep)
 	{
-		return {build : this.getActiveBodyparts(WORK) }
+		return {build : creep.getActiveBodyparts(WORK) }
 	}
 	
 	init(creep)
 	{
-		creep.override_states({Job : process_job})
+		creep.overrideStates({Job : process_job})
 	}
 };

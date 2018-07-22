@@ -1,7 +1,10 @@
 /* Main module for simple ai
  * It should develop a colony up to tier4, then be replaced by another ai
  */
+ 
+module.exports = {}
 
+require('creepbase')
 var HoP = require('spawner')
 /// Simple behaviours from tutorial
 var simpleBehaviours =
@@ -14,12 +17,13 @@ var simpleBehaviours =
 
 var firstTick = true
 
-function simple_ai_init()
+module.exports.init = function()
 {
-    
+    console.log("SimpleAI init")
+    console.log("Behaviour list=" + list_behaviours());
 }
 
-function simple_ai_run()
+module.exports.run = function()
 {
     //console.log("simple.ai starting tick " + Game.time)
 	var errors = []
@@ -89,7 +93,7 @@ function simple_ai_run()
 		var room = Game.rooms[rname]
 		var spawns = room.find(FIND_MY_SPAWNS)
 		
-		console.log("AI Tick " + Game.time + " room " + rname + " pop=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier() + " cap="+room.energyCapacityAvailable)
+		//console.log("AI Tick " + Game.time + " room " + rname + " pop=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier() + " cap="+room.energyCapacityAvailable)
     		
 		if(spawns.length == 0)
 		{
@@ -140,9 +144,3 @@ function simple_ai_run()
 		
 	console.log("simple.ai tick " + Game.time + " done")
 }
-
-module.exports = 
-{
-    run : simple_ai_run,
-    init: simple_ai_init,
-};

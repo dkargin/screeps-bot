@@ -27,7 +27,7 @@ function process_mining(creep)
     	var caps = creep.room.get_capabilities()
     	if(!caps.servitor)
     	{
-        	creep.set_state('Returning')
+        	creep.setState('Returning')
         	console.log(creep.name + " has not found servitors. Caps=" + JSON.stringify(caps))
         	creep.say("Return")
     	}
@@ -46,7 +46,7 @@ function process_returning(creep)
 	if(creep.carry.energy == 0)
 	{
 		creep.target = 0
-		creep.set_state('Job')
+		creep.setState('Job')
 		creep.say("Gomine")
 		return true
 	}
@@ -87,6 +87,11 @@ function process_returning(creep)
 
 module.exports = new class extends CreepBase.Behaviour 
 {
+    constructor()
+    {
+        super()    
+    }
+    
 	role()
 	{
 		return 'simple.miner'
@@ -110,9 +115,9 @@ module.exports = new class extends CreepBase.Behaviour
 	}
 
 	/// Return creep capabilities
-	get_capabilities()
+	getCapabilities(creep)
 	{		
-		return { mine : this.getActiveBodyparts(WORK) }
+		return { mine : creep.getActiveBodyparts(WORK) }
 	}
 	
 	get_demands()
@@ -127,12 +132,12 @@ module.exports = new class extends CreepBase.Behaviour
 		var tier = room.get_tech_tier()
 		if(tier >= 3)
 			return 2	/// TODO: number of mines
-		return get_mine_spots(room.name)
+		return get_mine_spots(room.name)*2
 	}
 	
 	init(creep)
 	{
 		//console.log("Overriding miner callbacks for " + creep.name)
-		creep.override_states({Job : process_mining,  Returning:process_returning})
+		creep.overrideStates({Job : process_mining,  Returning:process_returning})
 	}
 };

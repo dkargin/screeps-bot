@@ -24,8 +24,14 @@ function process_job(creep)
 	}
 }
 
-module.exports = new class extends CreepBase.Behaviour
+class SimpleUpgrader extends CreepBase.Behaviour
 {
+    constructor()
+    {
+        super()
+        console.log("SimpleUpgrader constructor done")
+    }
+    
 	role()
 	{
 		return 'simple.upgrader'
@@ -75,14 +81,16 @@ module.exports = new class extends CreepBase.Behaviour
 		return 2
 	}
 	/// Return creep capabilities
-	get_capabilities()
+	getCapabilities(creep)
 	{
-		return {upgrade : this.getActiveBodyparts(WORK) }
+		return {upgrade : creep.getActiveBodyparts(WORK) }
 	}
 	
     init(creep)
 	{	
     	//console.log("Overriding upgrader callbacks for " + creep.name)
-		creep.override_states({Job : process_job})
+		creep.overrideStates({Job : process_job})
 	}
-};
+}
+
+module.exports = new SimpleUpgrader()

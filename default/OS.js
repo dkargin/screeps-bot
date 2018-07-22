@@ -81,8 +81,6 @@ OS.print_memory = function(path)
     console.log("OS data for path " + path + " = " + data)
 }
 
-
-
 /// @param objects - array of object ids
 /// @returns array of objects that are still alive
 /// Implants 'memory' property to an object
@@ -706,7 +704,7 @@ function generate_new_pid()
     return pid
 }
 
-function get_session_id()
+global.get_session_id = function()
 {
     return current_session_id;
 }
@@ -877,7 +875,7 @@ function os_default_run(start_method)
     try
     {
         var startCpu = Game.cpu.getUsed() 
-        OS.log_info("Running tick " + Game.time)
+        OS.log_info("Running tick " + Game.time + " CPU limit=" + cpu_limit + " CPU used=" + startCpu)
         
         var totalThreads = 0
         

@@ -12,8 +12,6 @@ brain.CorporationTypes = brain.CorporationTypes || {}
 /// Maps room name to list of corporations
 brain.corporations = {}
 
-brain.Corp = {}
-
 /// List room corporations
 Room.prototype.list_corps = function()
 {
@@ -38,27 +36,40 @@ function check_alive(objects)
     return alive
 }
 
+// Check if object is alive
+function isAlive(objid)
+{
+    if (!objid)
+        return false;
+    var obj = Game.getObjectById(objid)
+    if (!obj || obj.hits == 0)
+        return false
+    return true
+}
+
 /// Base class for all corporations
-///  - 'property' - a map of objects that company owns
-///  - 'personnel' - corporation's personnel
+///  - 'property' - a map of buildings that company owns
+///  - 'personnel' - corporation's personnel. Maps some 'position' to a creep
+/// Corporation name is encoded by {corptype}@room
 class Corporation
 {
-    constructor(name, room)
+    constructor(basename, room)
     {
+        var name = basename + "@" + room.name
         this.name = name
         this.room = room
 
         /// Room personnel. Array of indices
-        this.personnel = []
+        this.personnel = {}
         /// Room property. Maps object role to object id
         this.property = {}
 
-        this.memory.room = room.name
-
-        this.memory.paused = this.memory.paused || true
-
-        this.memory.personnel = this.memory.personnel || []
-        this.memory.property = this.memory.property || {}
+        this.memory = _.default(this.memory, {
+            room: room.name,
+            paused: true,
+            personnel: {},
+            property: {},
+        })
 
         /// Load upgrader list from a memory
         for(var i in this.memory.personnel)
@@ -77,11 +88,28 @@ class Corporation
         }*/
         
         /// Register corporation for specific room
-        brain.corporations[room.name] = brain.corporations[room.name] || {}
-        brain.corporations[room.name][name] = this
+        _.set(brain, ['corporations', name], this)
+    }
+    
+    getPersonnel()
+    {
+        return personnel;
+    }
+    
+    // Get current vacant spots
+    getVacancies()
+    {
+        var result = []
+        var personnel = this.getPersonnel()
+        for(var s in personnel)
+        {
+            if (isAlive(personnel[s]))
+                result.push(s)
+        }
+        return result
     }
 
-    /// Print corp property to console
+    // Print corp property to console
     print_property()
     {
 
@@ -126,11 +154,20 @@ class Corporation
     { 
         return {}
     }
+    
+    // Corporation calls it when a creep is necessary
+    requestCreep()
+    {
+        
+    }
 }
+/*
+ *
+ */
 
 implant_memory(Corporation.prototype, '_corporations', (obj)=>obj.name)
 
-brain.Corporation = Corporation
+global.Corporation = Corporation
 
 module.exports = 
 {
@@ -140,6 +177,7 @@ module.exports =
         
     },
     
+    // Should we do it, or pass it to corporation-specific thread?
     update : function()
     {
         for(var c in Corporations)

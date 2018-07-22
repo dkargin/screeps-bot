@@ -93,7 +93,7 @@ Flag.prototype.get_flag_res = function()
 {
 	var room = Game.rooms[this.room]
 	var result = {}
-	throw("NotImplemented")
+	throw new Error("NotImplemented")
 }
 
 Flag.prototype.update_task = function(force)
@@ -331,14 +331,14 @@ function process_find_put(creep)
 	
 	if(creep.carry.energy == 0)
 	{
-		creep.clear_target()
-		creep.set_state('MoveGet')
+		creep.clearTarget()
+		creep.setState('MoveGet')
 		creep.say("Goget")
 		return true
 	}
 	
 	/// We fill spawn and tower first
-	if(!creep.has_target())
+	if(!creep.hasTarget())
 	{
 		//console.log(creep.name + " has no GIVE target")
 		if( creep.find_closest_target(FIND_STRUCTURES, filter_structures, 'give_structure'))
@@ -362,9 +362,9 @@ function process_find_put(creep)
 		}
 	}
 	
-	if(creep.has_target()) 
+	if(creep.hasTarget()) 
 	{
-		creep.set_state('MovePut')
+		creep.setState('MovePut')
 		creep.say("Goput")
 		return true
 	}
@@ -373,14 +373,14 @@ function process_find_put(creep)
 
 function process_job(creep)
 {
-	creep.set_state('MoveGet')
+	creep.setState('MoveGet')
 }
 /** @param {Creep} creep **/
 function process_move_get(creep)
 {
 	if(creep.carry.energy == creep.carryCapacity)
 	{
-		creep.set_state('FindPut')
+		creep.setState('FindPut')
     	creep.say("Return")
 	}
 	/// Go mining
@@ -412,7 +412,7 @@ function process_move_get(creep)
     	var obj = Game.flags[creep.memory.target]
     	if(!obj)
     	{
-    		creep.clear_target()
+    		creep.clearTarget()
     		return false
     	}
     	//console.log(creep.name + " moveget moving to GIVE flag " + obj.name );
@@ -432,7 +432,7 @@ function process_move_get(creep)
     }
     else if(creep.carry.energy > 0)
     {
-    	creep.set_state('FindPut')
+    	creep.setState('FindPut')
     	creep.say("Return")
     }
 }
@@ -440,7 +440,7 @@ function process_move_get(creep)
 function process_move_put(creep)
 {
 	var clear_target = false
-	if(creep.has_target()) 
+	if(creep.hasTarget()) 
 	{
 		var action = TargetActions[creep.memory.action]
 		if(!action)
@@ -479,11 +479,11 @@ function process_move_put(creep)
 	if(clear_target || creep.carry.energy == 0) 
 	{
 		//console.log(creep.name + " cleaning target data")
-		creep.clear_target()
+		creep.clearTarget()
 		if(creep.carry.energy > 0)
-			creep.set_state('FindPut')
+			creep.setState('FindPut')
 		else
-			creep.set_state('MoveGet')
+			creep.setState('MoveGet')
 		return true
 	}
 	return false
@@ -493,6 +493,11 @@ function process_move_put(creep)
 
 module.exports = new class extends CreepBase.Behaviour
 {
+    constructor()
+    {
+        super()    
+    }
+    
 	role() 
 	{
 		return 'simple.servitor'
@@ -516,7 +521,7 @@ module.exports = new class extends CreepBase.Behaviour
 	}
 	
 	/// Return creep capabilities
-	get_capabilities()
+	getCapabilities(creep)
 	{		
 		return { feed_spawn : 1, servitor : 1 }
 	}
@@ -560,7 +565,7 @@ module.exports = new class extends CreepBase.Behaviour
 	
 	init(creep)
 	{
-		creep.override_states({
+		creep.overrideStates({
 			MoveGet : process_move_get, 
 			FindPut: process_find_put, 
 			MovePut: process_move_put,
