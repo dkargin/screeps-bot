@@ -3,6 +3,12 @@
  * Module contains memory utilities at system level
  */
 
+if (!('_' in global))
+{
+	console.log('Seems like we start without lodash')
+	global._ = require('lodash')
+}
+
 global.OS = global.OS || {}
 
 var OS_LOG_FATAL = 5
@@ -61,6 +67,8 @@ var thread_by_path = {}
 var thread_by_pid = {}
 var free_pids = []
 var last_pid = 1
+
+var log_html = true
 
 // Threshold for stopping thread schedule and ending cycle
 var os_cpu_threshold = 0.5
@@ -184,7 +192,8 @@ function memory_init(user_memory_version)
     _.defaults(Memory.settings, 
     {
         os_cpu_threshold: os_cpu_threshold,
-        os_log_level: OS_LOG_INFO
+        os_log_level: OS_LOG_INFO,
+        os_log_html: log_html
     })
 
     // Init OS data page
@@ -204,15 +213,9 @@ function memory_init(user_memory_version)
     
     OS.logLevel = Memory.settings.os_log_level;
     os_cpu_threshold = Memory.settings.os_cpu_threshold;
-    
+    log_html = Memory.settings.os_log_html;
     OS.start_tick = Game.time
     
-    implant_memory(Source.prototype, '_sources');
-    implant_memory(StructureContainer.prototype, '_containers');
-    implant_memory(StructureStorage.prototype, '_storages');
-    implant_cache(Creep.prototype, '_creeps')
-    implant_cache(Flag.prototype, '_flags')
-
     /*
     Object.defineProperty(Source.prototype, 'memory', {
         get: function() {
@@ -384,6 +387,7 @@ class ThreadContext
         this.last_tick = 0
         
         this.loop = opts.loop || false
+        this.internal = opts.internal || false
         this.pid = 0
         // This field is used to check memory integrity
         // If we find a thread with session_id differnent from OS.session_id, we 
@@ -594,7 +598,23 @@ function dump_thread_stats()
         var thread = thread_by_path[p]
         thread.save_stat()
     }
-    
+}
+
+function print_thread_stats()
+{
+	console.log("Listing threads:")
+    for(var p in thread_by_path)
+    {
+        var thread = thread_by_path[p]
+        if (thread)
+        {
+        	console.log("\t-" + p + " pid=" + thread.pid)
+        }
+        else
+    	{
+        	console.log("\t-" + p + " is null")
+    	}
+    }
 }
 
 // OS.threads should contain map /path -> Context
@@ -672,6 +692,7 @@ function schedule_threads()
     spawn.sort((thread) => thread.effective_priority(tick))
 
     var threads_iterated = 0
+    var user_threads_iterated = 0
 
     //if (spawn.length == 0)
     //    OS.log_warn("No threads were scheduled for tick " + tick)
@@ -681,7 +702,11 @@ function schedule_threads()
     {
         var thread = spawn[t]
         if (spin_thread(thread, tick))
+        {
             threads_iterated++
+            if (!thread.internal)
+            	user_threads_iterated++;
+        }
     }
     
     for(var i in dead_threads)
@@ -693,7 +718,7 @@ function schedule_threads()
     // TODO: Move it to a separate thread
     dump_thread_stats()
     
-    return threads_iterated
+    return {total: threads_iterated, user: user_threads_iterated}
 }
 
 /// Simplest generator of new PID
@@ -719,7 +744,7 @@ global.get_session_id = function()
 // Cleans up all references from the thread
 function remove_thread(thread)
 {
-    OS.log_debug("OS: removing thread " + style_os_symbol(thread.path))
+    OS.log_info("OS: removing thread " + style_os_symbol(thread.path))
     var path = thread.path
     if (path && path in thread_by_path)
         delete thread_by_path[path]
@@ -733,7 +758,9 @@ function remove_thread(thread)
 
 function style_os_symbol(text)
 {
-    return "<b><font color=\"green\">"+text+"</font></b>"
+	if (log_html)
+		return "<b><font color=\"green\">"+text+"</font></b>"
+	return text;
 }
 
 /// Creates thread from generator and specified path
@@ -774,7 +801,11 @@ function create_thread_impl(parent, generator, path, opts = {})
     var parent_path = "none"
     if (parent && parent.path)
         parent_path = parent.path
-    OS.log_info("Created thread " + style_os_symbol(path) + " with pid="+style_os_symbol(pid) + " parent_path=" + style_os_symbol(parent_path) + " loop=" + style_os_symbol(tc.loop))
+    OS.log_info("Created thread " + style_os_symbol(path) + 
+    		" with pid="+style_os_symbol(pid) + 
+    		" parent_path=" + style_os_symbol(parent_path) + 
+    		" loop=" + style_os_symbol(tc.loop) +
+    		" internal=" + style_os_symbol(tc.internal))
     
     return tc
 }
@@ -807,7 +838,7 @@ OS.create_loop = function*(fn, path, opts = {})
         return 0
     }
     // Returning PID of that process
-    return yield* OS.create_thread(loop_wrapper(fn), path, _.defaults({loop:true}, opts))
+    return yield* OS.create_thread(loop_wrapper(fn), path, _.defaults({loop:true, internal:false}, opts))
 }
 
 OS.finishTick = function*()
@@ -832,7 +863,7 @@ OS.wait = function*()
 
 OS.break = function*()
 {
-    return yield new SysCommand(CMD_WAIT, [{ticks:1}])
+    return yield new SysCommand(CMD_WAIT, [{ticks:0}])
 }
 
 // Sleep for specified number of ticks
@@ -861,10 +892,11 @@ function os_default_run(start_method)
             OS.log_info("<b> starting memclean thread </b>")
             do
             {
+            	OS.log_info("<b> running memclean thread </b>")
                 OS.memory_clean();
             }while(yield *OS.finishTick());
             OS.log_fatal("<b>!!! memclean has exited its cycle !!!</b>")
-        }(), 'memclean');
+        }(), 'memclean', {internal: true});
         
         firstTick = false
         console.log("<b> ====================== Script initialization is done  =================</b>")
@@ -872,20 +904,25 @@ function os_default_run(start_method)
     
     var cpu_limit = Game.cpu.limit * os_cpu_threshold
     
+    var totalThreads = 0
+    var userThreads = 0
+    
     try
     {
         var startCpu = Game.cpu.getUsed() 
         OS.log_info("Running tick " + Game.time + " CPU limit=" + cpu_limit + " CPU used=" + startCpu)
         
-        var totalThreads = 0
-        
         do
         {
-            var scheduled = schedule_threads()
-            if (scheduled == 0)
+        	var result = schedule_threads()
+            var total = result.total
+            
+            if (total == 0)
                 break;
 
-            totalThreads += scheduled;
+            totalThreads += total;
+            userThreads += result.user;
+            
             var currentCpu = Game.cpu.getUsed()
             if (currentCpu > cpu_limit)
             {
@@ -900,7 +937,7 @@ function os_default_run(start_method)
         var used = Game.cpu.getUsed() 
         if(used > 10)
         {
-        	console.log("WARNING: CPU spike=" + used + " detected at tick " + Game.time)
+        	OS.log_warn("WARNING: CPU spike=" + used + " detected at tick " + Game.time)
         }
     }
     catch(ex)
@@ -908,36 +945,27 @@ function os_default_run(start_method)
         console.log("EXCEPTION: main loop got exception: " + ex)
         console.log("stack: " + ex.stack)
     }
-}
-
-/// This is the example foe OS thread
-/// We do thread testing for this
-var test_worker = function *(name, time)
-{
-    var info = yield OS.thread_info()
     
-    console.log(name + " has started")
-    
-    yield* OS.break("Stop at step 1")
-    console.log(name + " is doing step2")
-    yield* OS.break("Stop at step 2")
-    console.log(name + " is doing step3")
-    yield* OS.break("Stop at step 3")
-    console.log(name + " is going to sleep for " + time + " ticks")
-    yield* OS.sleep(time)
-    return "Complete"
+    if (!userThreads || !totalThreads)
+	{
+    	print_thread_stats()
+    	var threadsAlive = 0
+    	for(var p in thread_by_path)
+        {
+            var thread = thread_by_path[p]
+            if (thread && !thread.internal)
+            	threadsAlive++;
+        }
+    	
+    	if (threadsAlive == 0)
+    	{
+    		console.log("OS is exhaused")
+    		return false;
+    	}
+
+	}
+        
+    return true;
 }
-
-function* test_threads()
-{
-    console.log("Starting thread test")
-    var pid1 = yield* OS.create_thread(test_worker("worker1"), "/worker1")
-    var pid2 = yield* OS.create_thread(test_worker("worker1"), "/worker1")
-    
-    yield* OS.wait({pid: pid1}, {pid: pid2})
-    console.log("Thread test is complete")
-}
-
-
 
 module.exports = os_default_run;

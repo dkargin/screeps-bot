@@ -119,6 +119,12 @@ function* init_system()
     // This function will be executed infinetly, once per game tick
     console.log("AI: Starting")
     
+    implant_memory(Source.prototype, '_sources');
+    implant_memory(StructureContainer.prototype, '_containers');
+    implant_memory(StructureStorage.prototype, '_storages');
+    implant_cache(Creep.prototype, '_creeps')
+    implant_cache(Flag.prototype, '_flags')
+    
     Corps = require('corporation')
     RUtils = require('utils.room')
     SimpleAI = require('simple.ai')
