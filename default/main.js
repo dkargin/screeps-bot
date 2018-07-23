@@ -7,30 +7,6 @@ var RUtils;
 
 var SimpleAI
 
-/// Initialize room corporations
-function init_room_corps(room)
-{
-    brain.corporations.init_tick = start_tick
-    /// Create corporation for each spawn
-    var spawns = room.find(FIND_MY_SPAWNS) || []
-    if(spawns.length > 0)
-    {
-        console.log("Creating SpawnCorp")
-        var spawnCorp = new brain.Corp.Spawn(room)
-    }
-
-    var buildCorp = new brain.Corp.Build(room)
-
-    var mines = room.find(FIND_SOURCES) || []
-    for(var i in mines)
-    {
-        console.log("Creating MineCorp for mine " + mines[i].pos)
-        var mineCorp = new brain.Corp.Mine(mines[i])
-    }
-
-    var upgradeCorp = new brain.Corp.Build(room)
-}
-
 
 function* terrain_inspector()
 {
@@ -132,7 +108,7 @@ function* init_system()
     var pid = yield* OS.create_thread(terrain_inspector(), 'terrain_inspector')
     yield* OS.wait({pid: pid})
     
-    yield* OS.create_loop(SimpleAI.run, "/main")
+    yield* OS.create_loop(SimpleAI.run, "main")
     //yield* OS.create_loop(draw_room_data, "room_drawer", {priority:100})
     yield* OS.create_loop(tower_updater, 'towers')
     yield* OS.create_loop(auto_spawn_renew, 'spawn_renew')
