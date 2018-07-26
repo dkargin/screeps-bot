@@ -4,13 +4,31 @@ Corporations are representing a group of creeps and structures, that do some tas
 
 Every corporation has some sort of property. Corporation calculates maintenance costs for this property.
 
-Also each corporation class provides a set of AI actions, like 'build_miner'. This action describes an effect to the economy, like increasing resource flow or upgrade rate. This actions are used in economy planner. 
+Also each corporation class provides a set of AI actions, like 'build_miner'. This action describes an effect to the economy, like increasing resource flow or upgrade rate. This actions are used in economy planner.
 
-## MiningCorp ##
+## Economy overview ##
 
-Corporation starts at t2 when logistics center is available
+Possible income sources:
+
+1. Room mines
+2. External mines
+3. External keeper mines
+4. External salvaging
+
+Where we spend it
+1. Feeding spawns. Renewing creeps as well.
+2. Feeding the controller and RCL. Can eat any amount of energy.
+3. Spending on internal buildings, like extensions, containers and roads.
+4. Building and sustaining the walls.
+5. Army.
+
+## MiningCorpLocal ##
+
+Corporation should deal with local energy mining in a room
+
 Goal: deals with mining process
-Name: Mining@${roomName}@X${X}Y${Y}
+Name: Mining@${roomName}
+
 Property:
 	- energy source
 	- chest near energy source

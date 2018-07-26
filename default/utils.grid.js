@@ -5,6 +5,9 @@
  *  - IndexedMaxHeap
  *  - Wave
  *  - Grid
+ * 
+ * Following functions
+ *  - terrainToCostmap(terrain, width, height)
  */
 
 // Indexed Binary Heap with minimum search
@@ -269,17 +272,17 @@ class IndexedMaxHeap
 }
 
 
-function getAdjacent(x, y, width)
+function getAdjacent(x, y, width, height)
 {
     var adjacent = []
     for(var y0 = y-1; y0 <= y+1; y0++ )
     {
+    	if (y0 < 0 || y0 >= height)
+            continue
         for(var x0 = x-1; x0 <= x+1; x0++ )
         {
             if (x0 < 0 || x0 >= width)
                 continue;
-            if (y0 < 0 || y0 >= width)
-                continue
             if (x0 == x && y0 == y)
                 continue
             adjacent.push([x0 + y0 * width, x0, y0]);
@@ -359,13 +362,14 @@ class Grid
 
 class Wave
 {
-	constructor(terrain, size)
+	constructor(terrain, width, height)
 	{
 		this.terrain = terrain
-		this.size = size
+		this.width = width
+		this.height = height
 		this.heap = new IndexedMinHeap()
 		// Storage for wave nodes
-		this.nodes = new Array(size*size)
+		this.nodes = new Array(width*height)
 		this.search_id = 0
 	}
 	
@@ -375,13 +379,16 @@ class Wave
 		this.heap = new IndexedMinHeap()
 	}
 	
-	addWave(x, y, color, cost)
+	// Add new wave start
+	addStart(x, y, cost=0, color=null)
     {
-        if (x < 0 || y < 0 || x >= this.size || y >= this.size)
-        	throw new Error("Wave::addWave(" + x + "," + y + ") - coordinates are out ouf bounds size=" + this.size)
+        if (x < 0 || y < 0 || x >= this.width || y >= this.height)
+        	throw new Error("Wave::addWave("+[x, y]+") - coordinates are out ouf bounds size=" + [this.width, this.height])
         
-        var index = x + y*this.size
-        console.log("Added new color="+color+" to multiwave wave at " + [x,y])
+        if (!_.isFinite(cost))
+        	throw new Error("Wave::addWave("+[x, y]+") - cost should be a number: " + cost)
+        var index = x + y*this.width
+        //console.log("Added new color="+color+" to multiwave wave at " + [x,y])
         
         if (!this.nodes[index])
         	this.nodes[index] = {}
@@ -401,8 +408,10 @@ class Wave
     {
     	return false
     }
-    // Simplistic wave propagation. No queue.
-    //@returns number of nodes processed
+    
+    // Runs a single step of the wave propagation.
+    // @param stat - dictionary to store the statistics
+    // @returns current size of the heap
     runOnce(stat={})
     {
     	if (this.heap.size() == 0)
@@ -419,9 +428,9 @@ class Wave
         	return -1;
         
         // Contains direct indexes in a grid array
-        var adjacent = getAdjacent(current.x, current.y, this.size)
+        var adjacent = getAdjacent(current.x, current.y, this.width, this.height)
         
-        //console.log("Heap contains " + this.heap.size() + " nodes" + " best at x=" + current.x + " y=" + current.y + " adj=" + adjacent + " len=" + adjacent.length)
+        //console.log("Heap contains " + this.heap.size() + " nodes" + " best=" + [current.x, current.y, current.cost]  + " alen=" + adjacent.length)
         
         for(var j in adjacent)
         {
@@ -429,6 +438,9 @@ class Wave
             var index = adj[0]
         	var x = adj[1]
         	var y = adj[2]
+        	
+        	if (x < 0 || y < 0 || x >= this.width || y >= this.height)
+            	throw new Error("Wave::runOnce() from " + [current.x, current.y] + " to " +[x, y]+" - coordinates are out ouf bounds size=" + [this.width, this.height])
         	
             var cost = terrain[index]
             if (cost < 0)
@@ -446,6 +458,7 @@ class Wave
             	// In fact, we can get here only if we have heuristics, or lifelong wave
         		if (newCost < adjNode.cost)
                 {
+        			throw new Error("Broken wave: revisited a node " + JSON.stringify(adjNode))
                     adjNode.cost = newCost;
                     adjNode.from = current
                     adjNode.color = current.color
@@ -455,7 +468,7 @@ class Wave
                     // But I need to implement two additional functions, for increased and for decreased costs
                     if (!(adjNode.index == null))
                     	this.heap.pop(adjNode.index)
-                    console.log("Revisited node x=" + x + " y="+y + " cost=" + cost)
+                    console.log("Revisited node " + [x,y] +" cost=" + cost)
                     this.heap.push(cost, adjNode)
                     processed_total++
                 }
@@ -486,7 +499,7 @@ class Wave
         return this.heap.size()
     }
     
-    runWave(maxIterations=10000)
+    runWave(maxIterations=-1)
     {
     	var total = 0;
     	var iteration = 0;
@@ -503,7 +516,9 @@ class Wave
     		if (propagated > 0)
     			total += propagated;
     		iteration++;
-    	}while(iteration < maxIterations);
+    		if (maxIterations > 0 && iteration < maxIterations)
+    			break;
+    	}while(this.heap.size() > 0);
     	console.log("Wave was interrupted after iter="+iteration + " visited=" + total)
     	return 0
     }
@@ -512,14 +527,14 @@ class Wave
     // Returns a map {color->node}
     getNode(x, y)
     {
-    	if (x < 0 || y < 0 || x >= this.size || y >= this.size)
-        	throw new Error("Wave::getNode(" + x + "," + y + ") - coordinates are out ouf bounds size=" + this.size)
-        return this.nodes[x + y*this.size]
+    	if (x < 0 || y < 0 || x >= this.width || y >= this.height)
+        	throw new Error("Wave::getNode(" + [x,y] + ") - coordinates are out ouf bounds size=" + [this.width, this.height])
+        return this.nodes[x + y*this.width]
     }
     
     readCosts(_default=0)
     {
-    	var tsize = this.size*this.size;
+    	var tsize = this.width*this.height;
     	var result = new Array(tsize);
     	var nodes = this.nodes
     	for(var i = 0; i < tsize; i++)
@@ -533,24 +548,33 @@ class Wave
     	return result
     }
     
+    /**
+     * Checks for wave integrity
+     * It does the following checks:
+     * 	- nodes have proper x,y coordinates
+     *  - heap contains proper nodes. All nodes should be in the grid as well 
+     */
     checkIntegrity()
     {
     	var empty = 0
-    	var correct = 0
-    	var invalid = 0
-    	var size = this.size
-    	for (var y = 0; y < size; y++)
+    	var correctCoord = 0
+    	var invalidCoord = 0
+    	
+    	var width = this.width
+    	var height = this.height
+    	
+    	for (var y = 0; y < height; y++)
 		{
-    		for (var x = 0; x < size; x++)
+    		for (var x = 0; x < width; x++)
 			{
-    			var index = x + y*size;
+    			var index = x + y*width;
     			var node = this.nodes[index]
     			if (node)
     			{
     				if (node.x == x && node.y == y)
-    					correct++
+    					correctCoord++
     				else
-    					invalid++
+    					invalidCoord++
     			}
     			else
     			{
@@ -558,8 +582,52 @@ class Wave
     			}
 			}
 		}
-    	return {empty:empty, correct:correct, invalid:invalid}
+    	
+    	// Checking heap integridy
+    	var invalidHeapNodes = 0
+    	var hsize = this.heap.size()
+    	for (var i = 0; i < hsize; i++)
+    	{
+    		var node = this.heap.objects[i]
+    		if (!node)
+    		{
+    			invalidHeapNodes++;
+    			console.log("Heap contains null node at " + i)
+    			continue;
+    		}
+    		if (this.getNode(node.x, node.y) != node)
+    		{
+    			invalidHeapNodes++;
+    			console.log("Heap contains invalid node " + [node.x, node.y] + " at " + i)
+    		}
+    	}
+    	return {empty:empty, correct:correctCoord, invalid:invalidCoord, invalidHeap:invalidHeapNodes}
     }
+}
+
+//Converts terrain array to move cost array
+//@param terrain - linear array with terrain
+global.terrainToCostmap = function(terrain, width, height)
+{
+	if (!Array.isArray(terrain))
+		throw new Error("Should provide an array")
+	if (terrain.length != width*height)
+		throw new Error("Size of terrain does not equal to specified bounds")
+	
+	var tsize = width*height;
+	var costmap = new Array(tsize)
+	
+	for(var i = 0; i < tsize; i++)
+	{
+		var tile = terrain[i]
+		if (tile == 1)
+			costmap[i] = -1
+		else if(tile == 2)
+			costmap[i] = 5;
+		else
+			costmap[i] = 1;
+	}
+	return costmap;
 }
 
 global.Wave = Wave
