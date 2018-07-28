@@ -41,6 +41,8 @@ Actions:
 	- Add container near mine
 	- Add a road. Increases maintenance. Increases resource flow from movers
 
+
+
 ## UpgradeCorp ##
 
 Goal: deals with upgrading process of room controller
@@ -125,3 +127,4 @@ Information collected:
 
 Turret deals 600 damage at point blank range and 150 at max range. Scout needs to survive two-three hits. Also should move at maximum speed
 Harasser should have body like {ranged:1, melee:1, tough: 1, move:3}
+

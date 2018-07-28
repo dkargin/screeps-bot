@@ -121,12 +121,11 @@ Creep.prototype.clearTarget = function()
 		delete this.memory.target_pos
 }
 
-/** Storage for custom state handlers
+/** 
+ * Storage for custom state handlers
  * Maps unit id to overrides table 
- * 
-**/ 
+ */ 
 var CustomHandlers = {}
-
 
 Object.defineProperty(Creep.prototype, 'custom_handlers', {
 	get: function() 

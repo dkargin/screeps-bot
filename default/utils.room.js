@@ -1,6 +1,6 @@
 module.exports = {};
 
-require('utils.grid')
+require('./utils.grid')
 
 /// Terrain type
 const TERRAIN_WALL = 1
@@ -40,11 +40,11 @@ const ROOM_DATA_MINES_VERSION = 5
 
 
 /// Room roles
-var ROOM_ROLE = {
-	PASSAGE :0, 			/// Just a passage. No usefull resources
-	REMOTE_RESOURCE : 1,	/// We can do remote mining here
-	CITY :2,				/// Room to be claimed
-}
+const ROOM_ROLE_UNDECIDED = 0
+const ROOM_ROLE_CITY = 1
+const ROOM_ROLE_CAPITAL = 3
+const ROOM_ROLE_REMOTE_MINE = 4
+const ROOM_ROLE_PATROL_BORDER = 5
 
 /// Ring of 8 points around center at [0, 0]
 const contour_1 = [[1, 0], 
@@ -59,30 +59,6 @@ const contour_2 = [
 	[-2, 2], [-2, 1], [-2, 0], [-2,-1],
 	[-2,-2], [-1,-2], [ 0,-2], [ 1,-2]
 ]
-
-global.coords2str = function(x,y)
-{
-	return "X"+x+"Y"+y
-}
-
-/// Converts string, like X10Y34 to array with coordinates [10, 34]
-global.str2coords = function(packed)
-{
-    var patt = /X(\d+)Y(\d+)/;
-    var matches = packed.match(patt)
-    if(matches && matches.length == 3)
-       return [Number(matches[1]), Number(matches[2])]
-}
-
-/**
- * Get flat distance between two points, defined by an array a=[ax,ay], b=[bx,by]
- */
-global.flat_distance = function(a,b)
-{
-	var dx = Math.abs(a[0] - b[0])
-	var dy = Math.abs(a[1] - b[1])
-	return Math.max(dx, dy)
-}
 
 // Removes all the flags without specific role
 global.remove_flags = function()
@@ -119,6 +95,122 @@ global.remove_debug = function()
 
 
 var Database = {}
+
+/// Occupies map cells for specified mine
+// @param {Mine} mine
+// @param info - persistent room info
+// @param {Array} cpos - position of the room's center
+function place_mine_spots(mine, info, cpos)
+{
+	/// Get path to a mine
+	var path = cpos.findPathTo(this.room.getPositionAt(mine.x, mine.y), {IgnoreCreeps:true})
+
+	/* TODO: 
+	Since we occupy spots near both mine and chest, there can be better 
+	solutions for chest placing, allowing more mining spots. It can improve 
+	performance on lower tiers. 
+	Right now we pick chest position from the final point of path from 
+	logistics center to the mine
+	*/
+	/// 1. Find chest location
+	if(path.length > 1)
+	{
+		var finish = path[path.length-2];
+		
+		mine.chest = [finish.x, finish.y]
+		
+		this.set_spot(...mine.chest, SPOT.MINE_CHEST)
+		
+		mine.distance_min = path.length
+		mine.distance = this.effecive_path_length(path)
+		mine.path_bin = Room.serializePath(path)
+		/// Draw road
+		for(var i = 0; i < path.length-2; i++)
+			this.set_spot(path[i].x, path[i].y, SPOT.ROAD)
+	}
+	else
+	{
+		console.log("No path to mine " + coords2str(mine.x, mine.y))
+	}
+	
+	mine.distance = this.effecive_path_length(path)
+
+	/// 2. Occupy spots for a mine
+	var roomdata = this
+	var iterator = function(x, y)
+	{
+		if(roomdata.get_terrain(x, y) == TERRAIN_WALL)
+			return
+		var spot = roomdata.get_spot(x,y)
+		var len = flat_distance([x, y], mine.chest)
+		/// We occupy only spots nearby to the chest
+		if(spot == SPOT.FREE && len < 2)
+		{
+			roomdata.set_spot(x,y, SPOT.MINE)
+			console.log("Creating MSPOT " + [x,y] + " len=" + len)
+		}
+	}
+	this.mark_area_1(mine.x, mine.y, iterator)
+}
+
+/**
+ * Extract terrain data from the game
+ * @param {dict} info - persistent room info
+ * @param {String} rname - room name
+ */
+function read_terrain(info, rname)
+{
+	/// Do not read room data if we have already one
+	if(info.terrain_version && info.terrain_version == ROOM_DATA_TERRAIN_VERSION)
+	{
+		console.log("Room " + rname + " terrain is already scanned")
+		return
+	}
+		
+	/// 1. Gather the terrain
+	for(var y = 0; y < 50; y++)
+	{
+		var row = y*50
+		for(var x = 0; x < 50; x++)
+		{
+            var raw_tile = Game.map.getTerrainAt(x,y, rname)
+            if(raw_tile == 'wall')
+            	info.terrain[x+row] = TERRAIN_WALL
+            else if(raw_tile == 'swamp')
+            	info.terrain[x+row] = TERRAIN_SWAMP
+            else
+                info.terrain[x+row] = 0
+
+            info.spots[x+row] = 0
+		}
+	}
+	
+	/// 2. Read data about room structures
+	var room = Game.rooms[rname] 
+	if(room)
+	{
+		var filter = function(mine)
+		{
+			info.mines[mine.id] = {type:'E', x:mine.pos.x, y:mine.pos.y}		
+			return true
+		}
+
+		room.find(FIND_SOURCES, {filter:filter})
+		
+		var ctrl = room.controller
+		info.controller = {
+			level:ctrl.level, 
+			x:ctrl.pos.x, 
+			y:ctrl.pos.y,
+			progress:ctrl.progress,
+			total:ctrl.progressTotal
+		}
+	}
+	
+	info.terrain_version = ROOM_DATA_TERRAIN_VERSION
+	console.log("Scanned room " + rname)
+	//console.log("terrain=" + JSON.stringify(info.terrain))
+}
 
 /**
  * RoomData class
@@ -251,70 +343,8 @@ class RoomData
 	{
 
 	}
-	/**
-	 * Extract terrain data from game
-	 */
-	read_terrain(info)
-	{
-		/// Do not read room data if we have already one
-		if(info.terrain_version && info.terrain_version == ROOM_DATA_TERRAIN_VERSION)
-		{
-			console.log("Room " + this.name + " terrain is already scanned")
-			return
-		}
-			
-		var rname = this.name
-		/// 1. Gather the terrain
-		for(var y = 0; y < 50; y++)
-		{
-			var row = y*50
-			for(var x = 0; x < 50; x++)
-			{
-	            var raw_tile = Game.map.getTerrainAt(x,y, rname)
-	            if(raw_tile == 'wall')
-	            	info.terrain[x+row] = TERRAIN_WALL
-	            else if(raw_tile == 'swamp')
-	            	info.terrain[x+row] = TERRAIN_SWAMP
-	            else
-	                info.terrain[x+row] = 0
-
-	            info.spots[x+row] = 0
-
-	            /*
-	            var objects = this.room.lookForAt(LOOK_STRUCTURE, x, y)
-	            for(var i in objects)
-	            {
-	            	var obj = objects[i]
-	            }*/
-			}
-		}
-		
-		/// 2. Read data about room structures
-		if(this.room)
-		{
-			var filter = function(mine)
-			{
-				info.mines[mine.id] = {type:'E', x:mine.pos.x, y:mine.pos.y}		
-				return true
-			}
-
-			this.room.find(FIND_SOURCES, {filter:filter})
-			
-			var ctrl = this.room.controller
-			info.controller = {
-				level:ctrl.level, 
-				x:ctrl.pos.x, 
-				y:ctrl.pos.y,
-				progress:ctrl.progress,
-				total:ctrl.progressTotal
-			}
-		}	
-		info.terrain_version = ROOM_DATA_TERRAIN_VERSION
-		console.log("Scanned room " + this.name)
-		console.log("terrain=" + JSON.stringify(info.terrain))
-	}
-
-
+	
+	
 	/// Calculates room logistics center
 	*calc_logistics_center(info)
 	{
@@ -332,7 +362,7 @@ class RoomData
 		    else costmap[i] = 100
 	    }
 	    
-		
+		/*
 		var wave = new MultiWave(costmap, 50)
 		var mines = []
 		
@@ -345,7 +375,7 @@ class RoomData
 		}
 		
 		wave.addWave(info.controller.x, info.controller.y, "controller", 0)
-		/*
+		
 		var iterations = 0
 		var period = 10;
 		do
@@ -445,60 +475,6 @@ class RoomData
 
 	}
 	
-	/// Occupies map cells for specified mine
-	place_mine_spots(mine, info, cpos)
-	{
-		/// Get path to a mine
-		var path = cpos.findPathTo(this.room.getPositionAt(mine.x, mine.y), this.get_road_opts())
-
-		/* TODO: 
-		Since we occupy spots near both mine and chest, there can be better 
-		solutions for chest placing, allowing more mining spots. It can improve 
-		performance on lower tiers. 
-		Right now we pick chest position from the final point of path from 
-		logistics center to the mine
-		*/
-		/// 1. Find chest location
-		if(path.length > 1)
-		{
-			var finish = path[path.length-2];
-			
-			mine.chest = [finish.x, finish.y]
-			
-			this.set_spot(...mine.chest, SPOT.MINE_CHEST)
-			
-			mine.distance_min = path.length
-			mine.distance = this.effecive_path_length(path)
-			mine.path_bin = Room.serializePath(path)
-			/// Draw road
-			for(var i = 0; i < path.length-2; i++)
-				this.set_spot(path[i].x, path[i].y, SPOT.ROAD)
-		}
-		else
-		{
-			console.log("No path to mine " + coords2str(mine.x, mine.y))
-		}
-		
-		mine.distance = this.effecive_path_length(path)
-
-		/// 2. Occupy spots for a mine
-		var roomdata = this
-		var iterator = function(x, y)
-		{
-			if(roomdata.get_terrain(x, y) == TERRAIN_WALL)
-				return
-			var spot = roomdata.get_spot(x,y)
-			var len = flat_distance([x, y], mine.chest)
-			/// We occupy only spots nearby to the chest
-			if(spot == SPOT.FREE && len < 2)
-			{
-				roomdata.set_spot(x,y, SPOT.MINE)
-				console.log("Creating MSPOT " + [x,y] + " len=" + len)
-			}
-		}
-		this.mark_area_1(mine.x, mine.y, iterator)
-	}
-	
 	// TODO: Make this function reentrable, without references to yieldOS
 	*process_mines(info)
 	{
@@ -587,7 +563,7 @@ class RoomData
 		}
 		
 		var centerPos = this.room.getPositionAt(...info.center)
-		var closest = centerPos.findClosestByPath(uspots, this.get_road_opts())
+		var closest = centerPos.findClosestByPath(uspots, {IgnoreCreeps:true})
 		return closest
 	}
 	
@@ -651,7 +627,7 @@ class RoomData
 	{	
 		console.log("Started room " + this.name + " analysis")
 		var info = this.get_persistent_info()
-		this.read_terrain(info)
+		read_terrain(info)
 		
 		info.center = yield* this.calc_logistics_center(info)
 
@@ -662,14 +638,6 @@ class RoomData
 		this.place_upgrader_spots(info)
 		//yield "Saving memory"
 		//this.save_memory()
-	}
-
-	get_road_opts()
-	{
-		//avoid
-		this.road_opts = this.road_opts || {IgnoreCreeps:true}
-		//this.road_opts.avoid = []
-		return this.road_opts
 	}
 
 	/// Draw room visuals
@@ -735,49 +703,6 @@ class RoomData
 	    {
 	        
 	    }
-	}
-
-	/// Run wave algorithm to generate distance distance map
-	generate_wave_cost(start, filter)
-	{
-		var costs = PathFinder.CostMatrix()
-		var wave = []
-
-		return costs
-	}
-	
-	/**
-	 * Calculate effective path length
-	 */
-	effecive_path_length(path)
-	{
-		var distance = 0
-		for(var i = 0; i < path.length; i++)
-		{
-			var terrain = this.get_terrain(path[i].x, path[i].y)
-			distance += (terrain == TERRAIN_SWAMP ? 5 : 1)	
-		}
-		return distance
-	}
-
-	
-	/**
-	 * Marks area around specified point using callback
-	 * @callback should return spot type
-	 */ 
-	mark_area_1(x0,y0, callback)
-	{
-		for(var y = y0-1; y <= y0+1; y++)
-		{
-			for(var x = x0-1; x <= x0+1; x++)
-			{
-				if(x == 0 || x == 49 || y == 0 || y == 49)
-					continue
-				if(x == x0 && y == y0)
-					continue
-				callback( x, y)
-			}
-		}
 	}
 	
 	/**

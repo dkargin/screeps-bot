@@ -948,7 +948,7 @@ function os_default_run(start_method)
     
     if (!userThreads || !totalThreads)
 	{
-    	print_thread_stats()
+    	//print_thread_stats()
     	var threadsAlive = 0
     	for(var p in thread_by_path)
         {
@@ -959,7 +959,7 @@ function os_default_run(start_method)
     	
     	if (threadsAlive == 0)
     	{
-    		console.log("OS is exhaused")
+    		//console.log("OS is exhaused")
     		return false;
     	}
 

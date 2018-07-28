@@ -1,9 +1,7 @@
+'use strict'
 
 global.brain = global.brain || {}
  
-var Rooms = require("utils.room")
-//var Actions = require("threads")
-
 /// Storage for corporation types
 /// Will be used for memory state restoration
 brain.CorporationTypes = brain.CorporationTypes || {}
@@ -24,7 +22,8 @@ Room.prototype.list_corps = function()
     return corps
 }
 
-function check_alive(objects)
+
+function checkAlive(objects)
 {
     var alive = []
     for(var i in objects)
@@ -63,32 +62,40 @@ class Corporation
         this.personnel = {}
         /// Room property. Maps object role to object id
         this.property = {}
+        
+        this.memory = this.memory || {}
 
-        this.memory = _.default(this.memory, {
+        this.memory = _.defaults(this.memory, {
             room: room.name,
             paused: true,
-            personnel: {},
-            property: {},
+            personnel: [],
+            property: [],
         })
 
-        /// Load upgrader list from a memory
-        for(var i in this.memory.personnel)
-        {
-            this.personnel[i] = Game.getObjectById(i)
-        }
-        for(var i in this.memory.property)
-        {
-            this.property[i] = Game.getObjectById(this.memory.property[i])
-        }
-
-        /*
-        if(name in Corporations)
-        {
-            throw("Corporation " + name + " is already registered")
-        }*/
+        this.restoreFromMem()
         
         /// Register corporation for specific room
         _.set(brain, ['corporations', name], this)
+    }
+    
+    restoreFromMem()
+    {
+        /// Load upgrader list from a memory
+        if (this.memory.personnel)
+        {
+            for(var i in this.memory.personnel)
+            {
+                this.personnel[i] = Game.getObjectById(i)
+            }
+        }
+        
+        if (this.memory.property)
+        {
+            for(var i in this.memory.property)
+            {
+                this.property[i] = Game.getObjectById(this.memory.property[i])
+            }
+        }
     }
     
     getPersonnel()
@@ -110,19 +117,19 @@ class Corporation
     }
 
     // Print corp property to console
-    print_property()
+    printProperty()
     {
 
     }
 
-    /// Get room
-    get_room()
+    // Get room
+    getRoom()
     {
         return Game.rooms[this.memory.room]
     }
 
-    /// Serialize data to persistent memory
-    write_memory()
+    // Serialize data to persistent memory
+    writeMemory()
     {
         /// Update personnel data
         this.memory.personnel = []
@@ -139,20 +146,27 @@ class Corporation
     }
 
     /// Calculate corporation expenses 
-    calculate_expenses()
+    calculateExpenses()
     {
         var expenses = 0
         /// TODO: iterate all property and personnal
         return expenses
     }
 
-    /// List available actions for specified state
+    // List available actions for specified state
     list_ai_actions(state) {}
     
-    /// Get current state for AI solver
+    // Get current state for AI solver
     current_state() 
     { 
         return {}
+    }
+    
+    // Get corporation name
+    // @returns string name
+    getName()
+    {
+        return this.name
     }
     
     // Corporation calls it when a creep is necessary
@@ -161,9 +175,6 @@ class Corporation
         
     }
 }
-/*
- *
- */
 
 implant_memory(Corporation.prototype, '_corporations', (obj)=>obj.name)
 
@@ -176,36 +187,4 @@ module.exports =
     {
         
     },
-    
-    // Should we do it, or pass it to corporation-specific thread?
-    update : function()
-    {
-        for(var c in Corporations)
-        {
-            Corporations[c].update()
-        }
-    }
 };
-
-
-/*
-AI Advisor iterates all corporations for list of available actions and chooses the one with best overall metric
-
-list_ai_actions(state) - corporation should list its available actions
-
-state = 
-{
-    tier - room tier
-    harvest_rate - current harvest estimation
-    upgrade_rate - current upgrade rate
-}
-
-Upgrader Actions:
-    SpawnUpgrader = SpawnUnit(body, provides={upgrading: numbody, limited by state harvest rate and build distribution})
-    build chest = BuildStructure(chest)
-    build road = BuildStructure(road)
-
-Builder:
-    SpawnBuilder = SpawnUnit(body, provides={building: numbody})
-
-*/

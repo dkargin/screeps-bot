@@ -1,16 +1,138 @@
-/*
+/**
  * This function congains numerous grid utilities
  * It will register following classes to the globals:
- *  - IndexedMinHeap
- *  - IndexedMaxHeap
- *  - Wave
- *  - Grid
+ *  IndexedMinHeap
+ *  IndexedMaxHeap
+ *  Wave
+ *  Grid
  * 
- * Following functions
- *  - terrainToCostmap(terrain, width, height)
+ * Following functions are exported to global:
+ *  coords2str(x,y)
+ *  str2coords(packed)
+ *  flat_distance(a, b) -> {Number}
+ *  is_near(a, b) -> {Bool}
+ *  getAdjacent(x,y) -> [[x0, y0], [x1, y1, ...]
+ *  minCellInGrid(costs, width, height) -> [best, [x, y]]
+ *  terrainToCostmap(terrain, width, height)
  */
 
-// Indexed Binary Heap with minimum search
+global.coords2str = function(x,y)
+{
+	return "X"+x+"Y"+y
+}
+
+/// Converts string, like X10Y34 to array with coordinates [10, 34]
+global.str2coords = function(packed)
+{
+    var patt = /X(\d+)Y(\d+)/;
+    var matches = packed.match(patt)
+    if(matches && matches.length == 3)
+       return [Number(matches[1]), Number(matches[2])]
+}
+
+/**
+ * Get flat distance between two points, defined by an array a=[ax,ay], b=[bx,by]
+ */
+global.flat_distance = function(a,b)
+{
+	var dx = Math.abs(a[0] - b[0])
+	var dy = Math.abs(a[1] - b[1])
+	return Math.max(dx, dy)
+}
+
+/**
+ * Check if room position 'a' is near to room position 'b'
+ * @returns {Bool}
+ */
+global.isNear = function(a,b)
+{
+	if (a.roomName === b.roomName)
+	{
+		var dx = Math.abs(a.x - b.x)
+		var dy = Math.abs(a.y - b.y)
+		return Math.max(dx, dy) <= 1
+	}
+	return false
+}
+
+/**
+ * Marks area around specified point using callback
+ * @callback should return spot type
+ */ 
+global.mark_area_1 = function(x0, y0, callback)
+{
+	for(var y = y0-1; y <= y0+1; y++)
+	{
+		for(var x = x0-1; x <= x0+1; x++)
+		{
+			if(x == 0 || x == 49 || y == 0 || y == 49)
+				continue
+			if(x == x0 && y == y0)
+				continue
+			callback( x, y)
+		}
+	}
+}
+
+/**
+ * Finds the coordinate with the munimal cost in the entire grid
+ * @param costs {Array} - flat array with costs
+ * @param width - width of the flat array
+ * @param height - height of the flat array
+ * @returns {Array} - an array with [bestCost, [x, y]]
+ */
+function minCellInGrid(costs, width, height)
+{
+	if (!Array.isArray(costs))
+		throw new Error("Should provide an array")	
+	if (!Number.isInteger(width) || !Number.isInteger(height))
+    	throw new Error("Invalid size")
+	if (costs.length != (width*height))
+		throw new Error("Invalid costmap size")
+	
+	var best
+	var bestCost = 200
+	for(var y = 0; y < height; y++)
+	{
+		for(var x = 0; x < width; x++)
+		{
+			var index = x + y*width
+			var cost = costs[index]
+			if (!cost || cost < 0)
+				continue
+			if (cost < bestCost)
+			{
+				best = [x, y]
+				bestCost = cost
+			}
+		}
+	}
+	return [bestCost, best]
+}
+
+function getAdjacent(x, y, width, height)
+{
+    var adjacent = []
+    for(var y0 = y-1; y0 <= y+1; y0++ )
+    {
+    	if (y0 < 0 || y0 >= height)
+            continue
+        for(var x0 = x-1; x0 <= x+1; x0++ )
+        {
+            if (x0 < 0 || x0 >= width)
+                continue;
+            if (x0 == x && y0 == y)
+                continue
+            adjacent.push([x0 + y0 * width, x0, y0]);
+        }
+    }
+    return adjacent
+}
+
+/**
+ * Indexed Binary Heap
+ * Elements are sorted in ascending order 
+ */
 class IndexedMinHeap
 {
 	constructor()
@@ -141,7 +263,10 @@ class IndexedMinHeap
 }
 
 
-//Indexed Binary Heap
+/**
+ * Indexed Binary Heap
+ * Elements are sorted in descending order 
+ */
 class IndexedMaxHeap
 {
 	constructor()
@@ -271,28 +396,9 @@ class IndexedMaxHeap
 	}
 }
 
-
-function getAdjacent(x, y, width, height)
-{
-    var adjacent = []
-    for(var y0 = y-1; y0 <= y+1; y0++ )
-    {
-    	if (y0 < 0 || y0 >= height)
-            continue
-        for(var x0 = x-1; x0 <= x+1; x0++ )
-        {
-            if (x0 < 0 || x0 >= width)
-                continue;
-            if (x0 == x && y0 == y)
-                continue
-            adjacent.push([x0 + y0 * width, x0, y0]);
-        }
-    }
-    return adjacent
-}
-
-
-//Generic 2d grid
+/**
+ * Generic 2d grid
+ */
 class Grid
 {
 	constructor(width, height, initial=null)
@@ -320,6 +426,7 @@ class Grid
 	}
 	
 	// Serializes grid to string
+	// @returns {String} serialized string
 	serialize()
 	{
 		var output = ""
@@ -357,13 +464,54 @@ class Grid
 		this.data = result
 		this.width = width
 	}
+	
+	/**
+	 * Calculate effective cost of the path
+	 * 	This function treats each cell as terrain type
+	 * @param path {Array} - a path to be calculated
+	 * @returns {Number} total cost
+	 */
+	effectiveTerrainPathCost(path)
+	{
+		var distance = 0
+		for(var i = 0; i < path.length; i++)
+		{
+			var terrain = this.get(path[i].x, path[i].y)
+			distance += (terrain == TERRAIN_SWAMP ? 5 : 1)	
+		}
+		return distance
+	}
+
+	/**
+	 * Calculate effective cost of the path
+	 * This function treats each cell as traverse cost
+	 * @param path {Array} - a path to be calculated
+	 * @returns {Number} total cost. Can return negative value if path is invalid
+	 */
+	effectivePathCost(path)
+	{
+		var distance = 0
+		for(var i = 0; i < path.length; i++)
+		{
+			var terrain = this.get(path[i].x, path[i].y)
+			if (terrain == null || terrain < 0)
+				return -1
+			distance += terrain	
+		}
+		return distance
+	}
 }
 
-
+/**
+ * Wave algorithm
+ * Used to find shortest paths or running distance transform
+ */
 class Wave
 {
 	constructor(terrain, width, height)
 	{
+		if (!Number.isInteger(width) || !Number.isInteger(height))
+        	throw new Error("Invalid wave size")
 		this.terrain = terrain
 		this.width = width
 		this.height = height
@@ -382,6 +530,9 @@ class Wave
 	// Add new wave start
 	addStart(x, y, cost=0, color=null)
     {
+		if (!Number.isInteger(x) || !Number.isInteger(y))
+        	throw new Error("Invalid coordinates: " + [x, y])
+		
         if (x < 0 || y < 0 || x >= this.width || y >= this.height)
         	throw new Error("Wave::addWave("+[x, y]+") - coordinates are out ouf bounds size=" + [this.width, this.height])
         
@@ -532,6 +683,23 @@ class Wave
         return this.nodes[x + y*this.width]
     }
     
+    /** 
+     * Get a path from specified node to the start of the wave
+     * @returns {Array} - [[x1, y1, cost1], [x2, y2, cost2], ...]
+     */
+    getPath(x, y)
+    {
+    	let maxIter = this.width * this.height
+    	var result = []
+    	var node = getNode(x, y)
+    	while(node)
+    	{
+    		result.push([node.x, node.y, node.cost])
+    		node = node.prev
+    	}
+    	return result
+    }
+    
     readCosts(_default=0)
     {
     	var tsize = this.width*this.height;
@@ -605,9 +773,14 @@ class Wave
     }
 }
 
-//Converts terrain array to move cost array
-//@param terrain - linear array with terrain
-global.terrainToCostmap = function(terrain, width, height)
+/**
+ * Converts terrain array to move cost array
+ * @param terrain {Array} - linear array with terrain
+ * @param width {Number} - width of the terrain
+ * @param height {Number}- height of the terrain
+ * @returns
+ */
+function terrainToCostmap(terrain, width, height)
 {
 	if (!Array.isArray(terrain))
 		throw new Error("Should provide an array")
@@ -631,9 +804,12 @@ global.terrainToCostmap = function(terrain, width, height)
 }
 
 global.Wave = Wave
+global.Grid = Grid
 global.IndexedMinHeap = IndexedMinHeap
 global.IndexedMaxHeap = IndexedMaxHeap
-global.Grid = Grid
+global.minCellInGrid = minCellInGrid
+global.getAdjacent = getAdjacent
+global.terrainToCostmap = terrainToCostmap
 
 module.exports = 
 {

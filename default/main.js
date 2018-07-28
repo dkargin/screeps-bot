@@ -7,7 +7,6 @@ var RUtils;
 
 var SimpleAI
 
-
 function* terrain_inspector()
 {
     for(var r in Game.rooms)
@@ -101,14 +100,30 @@ function* init_system()
     implant_cache(Creep.prototype, '_creeps')
     implant_cache(Flag.prototype, '_flags')
     
-    Corps = require('corporation')
+    require('corp.mine')
     RUtils = require('utils.room')
-    SimpleAI = require('simple.ai')
-    SimpleAI.init()
+    //SimpleAI = require('simple.ai')
+    //SimpleAI.init()
     var pid = yield* OS.create_thread(terrain_inspector(), 'terrain_inspector')
     yield* OS.wait({pid: pid})
     
-    yield* OS.create_loop(SimpleAI.run, "main")
+    // 1. Starting game from the scratch, or we do not have valid previous session
+    // Iterate through all the rooms with spawns. This rooms should be marked as 'TOWN'
+    // Spawn corporations for every room
+    for(var r in Game.rooms)
+    {
+        var room = Game.rooms[r]
+        // Check if this room is owned
+        if (!room.controller || !room.controller.my)
+        	continue;
+        
+        // Spawn mine corporation if room is classified as a town
+        var rdata = get_room_data(r)
+        var miner = new MineCorp(room, r)
+        yield* OS.create_loop(miner.run, "corp/" + miner.getName())
+    }
+    
+    //yield* OS.create_loop(SimpleAI.run, "main")
     //yield* OS.create_loop(draw_room_data, "room_drawer", {priority:100})
     yield* OS.create_loop(tower_updater, 'towers')
     yield* OS.create_loop(auto_spawn_renew, 'spawn_renew')

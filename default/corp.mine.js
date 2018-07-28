@@ -5,39 +5,128 @@
  * - storage nearby the mine
  * - specialised mover to deliver harvest
 **/
-brain.Corp.Mine = class extends brain.Corporation
+
+var CreepBase = require('./creepbase')
+
+require('./corporation')
+
+
+// Calculates a mine rate for specified creep
+// @param creep - creep object
+function miningRate(creep)
 {
-    constructor(mine)
+    if(!creep)
+        return 0
+    var nwork = creep.getActiveBodyparts(Game.WORK)
+    return 2*nwork
+}
+
+// Calculates mover performance, average energy per tick
+// @param creep
+function transfer_rate(creep, distance)
+{
+    if(!creep)
+        return 0
+    let nmove = creep.getActiveBodyparts(Game.MOVE)
+    let ncarry = creep.getActiveBodyparts(Game.CARRY)
+    return 25*nstore*nmove / (distance*(nmove + 2*nstore))
+}
+
+// Roles for MineCorp
+
+// Main miner. We have one for each mine
+const ROLE_MINER = "Miner"
+// Mining helper for the case when RCL+spawner are too low to spawn best miner. 
+// Also assistant is created to replace old miner. Assistant becomes main miner 
+// when main is dead for some reason
+const ROLE_ASSISTANT = "Assistant"
+// Scuttle. Moves energy from miner spots to unloading position. Drops energy under main miner
+const ROLE_SCUTTLE = "Scuttle"
+// This worker is spawned when room is completely empty and there are no workers
+const ROLE_STARTER = "Starter"
+	
+// Corp property
+PROPERTY_CONTAINER = 1
+PROPERTY_ROAD = 2
+PROPERTY_RAMP = 3
+
+/*
+ * Equipment:
+ * Container1
+ */
+global.MineCorp = class extends Corporation
+{
+	// @param room - Room object
+	// @param info - persistent room info
+    constructor(room, info)
     {
-        var name = "MineCorp" + mine.id
-        super(name, mine.room)
+        super("MineCorp", room)
+        if (!info)
+            throw new Error("Empty info")
+        if (!'mines' in info)
+        	throw new Error("room info has no mines!")
         
-        this.memory.mine_id = mine.id
-        //this.memory.unload_id = unload_obj.id
-        // Identifier of drill creep
-        //this.memory.drill = this.memory.drill || "" 
-        // Intermediate storage for a drill
-        //this.memory.storage = this.memory.storage || ""
-        // Array of mover creeps. They move res from drill/storage 
-        // to destination storage
-        //this.memory.movers = this.memory.movers || []
-        /// Arraty of simple workers. They do the stuff in first period of the game
-        /// Later they are replaced by a drill creeps
-        //this.memory.workers = this.memory.workers || []
-        /// Mine starts paused. Main manager decides when to activate specific mine
-        /// Contains current storage state
-        this.memory.storage = 0
+        this.mines = []
         
-        this.check_path()
-    }
-    
-    id()
-    {
-        return this.name
+        for (let mineId in info.mines)
+    	{
+        	var mine = info.mines[mineId]
+        	// Right now we are capable only of E gathering
+        	if (mine.type != 'E')
+        		return;
+        	
+        	this.mines.push({
+        		x: mine.x,
+        		y: mine.y,
+        		id: mineId,
+        		type: mine.type,
+        	})
+        	
+        	let i = this.mines.length-1;
+        	// Allocate specific corporate positions
+        	
+        	this.personnel[roleMiner = ROLE_MINER+":"+i] = {
+    			mine: Game.getObjectById(mineId)
+    		}
+        	
+        	this.personnel[ROLE_ASSISTANT+":"+i] = {
+        		mine: Game.getObjectById(mineId)
+        	}
+        	
+        	index++;
+    	}
+        
+        // TODO: Should revisit existing equipment and check if it fits current layout
+        
+        this.memory.personnel = this.memory.personnel || [] 
+        
+        // TODO: Should revisit existing personnel and check if it fits current layout
+        var invalidPositions = []
+        
+        for (let i in this.memory.personnel)
+        {
+        	var record = this.memory.personnel[i]
+        	
+        	var id = record[0]
+        	var position = record[1]
+        	var state = record[2]
+        	
+        	if (!('position' in this.personnel))
+        		invalidPositions.push(position)
+        	else
+        	{
+	        	var obj = Game.getObjectById(obj)
+	        	this.personnel[position] = 
+	        	{
+	        		obj:obj,
+	        		state:state,
+	        	}
+        	}
+        }
     }
     
     /// How much we need to invest to make optimal revenue
-    investment_cost()
+    investmentCost()
     {
     	var store_cost = 5000
     	/// Cost for road construction
@@ -49,60 +138,31 @@ brain.Corp.Mine = class extends brain.Corporation
     	return store_cost + road_cost + miner_cost + movers_cost
     }
     
-    /// Check precompiled paths
-    check_path()
-    {
-        /// TODO: implement precompiled paths when CPU limit will be near
-    }
-    
-    /// Get corporation name
-    corp_name()
-    {
-        return this.name
-    }
-    
     /// Check whether corp has valid storage
+    /*
     has_storage()
     {
         return this.memory.storage
     }
+    */
     
-    /// Set new unload position
-    /// All workers should adapt properly to this change
-    set_unload_destination()
+    /**
+     * Set new unload position.
+     * Servitors will unload all the resources there
+     * @param dest - array of coordinates or an object
+     */
+    setUnloadDestination(dest)
     {
         /// TODO: implement
     }
-    
-    /// Get mine object
-    get_mine()
+        
+    // Check if personnel is alive. Remove personal that is dead
+    checkPersonnel()
     {
-        return Game.getObjectById(this.memory.mine_id)
+        //this.memory.movers = check_alive(this.memory.movers)
+        //this.memory.workers = check_alive(this.memory.movers)
     }
     
-    /// Get dat drill
-    get_drill()
-    {
-        return Game.getObjectById(this.memory.drill)
-    }
-    
-    /// Check if personnel is alive. Remove personal that is dead
-    check_personnel()
-    {
-        this.memory.movers = check_alive(this.memory.movers)
-        this.memory.workers = check_alive(this.memory.movers)
-    }
-    
-    /// Calculates mover performance, average energy per tick
-    transfer_rate(obj, distance)
-    {
-        if(!obj)
-            return 0
-        var nmove = obj.getActiveBodyparts(Game.MOVE)
-        var ncarry = obj.getActiveBodyparts(Game.CARRY)
-        return 25*nstore*nmove / (distance*(nmove + 2*nstore))
-    }
-
     total_transfer_rate()
     {
         /// TODO: Calculate effective distance, checking the roads
@@ -128,19 +188,11 @@ brain.Corp.Mine = class extends brain.Corporation
         return transfer - mine_income
     }
     
-    mine_rate(obj)
-    {
-        if(!obj)
-            return 0
-        var nwork = obj.getActiveBodyparts(Game.WORK)
-        return 2*nwork
-    }
-    
     /// Get average mine income, per tick
     get_mine_income()
     {
         var income = 0
-        income += this.mine_rate(Game.getObjectById(this.memory.drill))
+        income += this.mineRate(Game.getObjectById(this.memory.drill))
         for(var m in this.memory.workers)
         {
             var obj = Game.getObjectById(this.memory.workers[m])
@@ -154,140 +206,208 @@ brain.Corp.Mine = class extends brain.Corporation
         return income
     }
     
-    get_unload_pos()
+    getUnloadPos()
     {
         var obj = Game.getObjectById(this.memory.unload_id)
         return Game.getObjectPos(obj)
     }
     
-    /// Calculate data for a mine
-    analyse_mine()
+    // Creep found inconsistency with its job and it asks for a new position
+    findBetterJob(creep)
     {
-        console.log("CorpMine analysing its mine")
-    	var msg = ""
-        var mine = this.get_mine()
-        var pos = this.get_unload_pos()
-        
-        var tier = mine.room.get_tech_tier()
-        
-        var storage_sites = mine.pos.findInRange(FIND_STRUCTURES, 2, 
-        {
-            filter: { structureType: STRUCTURE_CONTAINER }
-        });
-
-        for(var s in storage_sites)
-        {
-            this.memory.storage = 2
-            storage_sites[s].memory = storage_sites[s].memory || {}
-            storage_sites[s].memory.type = "source"
-            storage_sites[s].memory.corp = this.corp_name()
-        }
-        
-        var storage_build_sites = mine.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, 
-        {
-            filter: { structureType: STRUCTURE_CONTAINER }
-        });
-
-        if(this.memory.storage < 2)
-        {
-            if(storage_build_sites.length > 0)
-                this.memory.storage = 1
-        }
-        
-        //console.log("Found "+storage_build_sites.length + " storage build sites near mine " + mine.id)
-        msg = msg+(this.corp_name() + " storages=" + storage_sites.length)
-        
-        var path = pos.findPathTo(mine.pos)
-        this.memory.distance = path.length
-        
-        var max = 0
-        var storage_pos
-        var spots = mine.pos.list_free_spots()
-        
-        mine.memory.spots = spots.length
-        
-        if(path)
-        {
-            var finish = path[path.length-2];
-            
-            if(this.has_storage() == 0 && tier > 1)
-            {
-                storage_pos = new RoomPosition(finish.x, finish.y, pos.roomName)
-                mine.memory.drop_x = finish.x
-                mine.memory.drop_y = finish.y
-                var result = mine.room.createConstructionSite(storage_pos, STRUCTURE_CONTAINER);
-                if(result != OK)
-                {
-                	msg += ("- build pos=" + storage_pos + " failed: " + result)
-                }
-            }
-        }
-        
-        //if(msg.lenth > 0)
-        console.log(msg)
-    }
-    
-    /// Event handler for created drill
-    on_spawned_drill(obj)
-    {
-        console.log("MineCorp"+this.corp_name()+" got new drill")
-    }
-    
-    /// Event handler for created mover
-    on_spawned_mover(obj)
-    {
-        console.log("MineCorp"+this.corp_name()+" got new mover")
-    }
-    
-    /// Event handler for created worker
-    on_spawned_worker(obj)
-    {
-        console.log("MineCorp"+this.corp_name()+" got new worker")
+    	
     }
     
     update()
     {
+    	console.log("Corporation " + name + " is working hard")
         var name = this.corp_name()
 
-        console.log("Corporation " + name + " is working hard")
-        this.check_personnel()
+        this.checkPersonnel()
 
         var room = this.get_room()
 
-        /*
-        
-        if(!this.memory.drill && !this.memory.drill_queued)
-        {
-            console.log("Spawning a drill for the mine corp" + name)
-            var recipe =
-            {
-                name: "drill",
-                body: [Game.WORK, Game.WORK, Game.CARRY, Game.MOVE],
-                memory: 
-                {
-                    role: "drill",
-                    occupation: name
-                },
-            }
-            
-            var res = room.enqueue(recipe, this.event(this.on_spawned_drill))
-            console.log(res)
-        }
-        else if(!this.check_movers_enough())
-        {
-            console.log("Spawning a mover for the mine corp" + name)
-            var recipe =
-            {
-                name: "drill",
-                body: [Game.CARRY, Game.CARRY, Game.MOVE, Game.MOVE],
-                memory: 
-                {
-                    role: "drill",
-                    occupation: name
-                },
-            }
-            
-            var res = room.enqueue(recipe, this.event(this.on_spawned_mover))
-        }*/
+        for (let worker in this.personnel)
+    	{
+    	
+    	}
     }
 }
+
+/*
+ * All creep functions get following data:
+ * {
+ * 	 mine - mine object to be harvested
+ *   site - construction site to be built. Miners will get a ref to 
+ * }
+ */
+MinerStates = 
+{
+	// Arriving to a mine
+	arriving: function(creep, corp, data)
+	{
+		//var source = creep.pos.findClosestByPath(FIND_SOURCES);
+		var source = data.mine
+		if (!isNear(creep.pos, source.pos))
+		{
+            creep.moveTo(source);
+        }
+        else
+        {
+        	creep.setState('mining')
+        	return true;
+        }
+	},
+	mining: function(creep, corp, data)
+	{
+		var source = Game.getObjectById(data.target)
+		if(source && creep.harvest(source) == ERR_NOT_IN_RANGE) 
+		{
+            creep.moveTo(source);
+        }
+		
+		// Check if we should build something as well
+		if (data.spot && creep.carry.energy == creep.carryCapacity)
+		{
+			creep.setState('building')
+		}
+	},
+	building: function(creep, corp, data)
+	{
+		var site = data.site
+		if (site)
+		{
+			if (creep.carry.energy > 0)
+				creep.build(site);
+			else
+			{
+				creep.setState('mining')
+			}
+		}
+		else
+		{
+			creep.setState('mining')
+		}
+	}
+}
+
+// States for starter creep
+StarterStates = {
+	mining:function(creep, corp, data)
+	{
+		/// Go mining
+	    if(creep.carry.energy < creep.carryCapacity) 
+	    {
+	    	var source = creep.pos.findClosestByPath(FIND_SOURCES);
+	        if(source && creep.harvest(source) == ERR_NOT_IN_RANGE) {
+	            creep.moveTo(source);
+	        }
+	        else
+	        {
+	        	creep.target = source
+	        }
+	    }
+	    else
+	    {
+	    	creep.say("Return")
+	    	creep.setState('returning')
+	    }
+	},
+	returning:function(creep, corp, data)
+	{
+		if(creep.carry.energy == 0)
+		{
+			creep.target = 0
+			creep.setState('Job')
+			creep.say("Gomine")
+			return true
+		}
+		
+		// Feeding spawn
+		if(!creep.target)
+		{
+	    	var target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+	            filter: (structure) => 
+	    		{
+	                return (structure.structureType == STRUCTURE_SPAWN) && structure.energy < structure.energyCapacity;
+	            }
+	        });
+	    	creep.target = target
+	    	creep.target_action = () => creep.transfer(creep.target, RESOURCE_ENERGY)
+		}
+
+		// Construction stuff. Maybe we should not do it by this creep
+		if(!creep.target)
+		{
+			if(creep.target = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES))
+			{
+				creep.target_action = () => creep.build(creep.target);
+			}
+		}
+		
+		if(creep.target && creep.target_action) 
+		{
+			if(creep.target_action() == ERR_NOT_IN_RANGE)
+			{
+	            creep.moveTo(creep.target);
+	        }
+		}
+		else
+		{
+			delete creep.target
+			delete creep.target_action
+		}
+		return false
+	}
+}
+
+
+
+class CorpMiner extends CreepBase.Behaviour 
+{
+    constructor()
+    {
+        super()    
+    }
+    
+	role()
+	{
+		return 'CorpMiner'
+	}
+	
+	spawn(room) 
+	{
+		var tier = room.get_tech_tier()
+		if(tier >= 3)
+			return {
+				name: 'SM', body : unpack_recipe({work:5, carry:2, move:4}), mem : {role:this.role(), tier : 3 }
+			} 
+		else if(tier == 2)
+			return {
+				name: 'SM', body : unpack_recipe({work:4, carry:1, move:2}), mem : { role:this.role(), tier: 2 }
+			}	
+		else
+			return {
+				name: 'SM', body : unpack_recipe({work:2, carry:1, move:1}), mem : {role:this.role(), tier : 1 }
+			}
+	}
+
+	/// Return creep capabilities
+	getCapabilities(creep)
+	{		
+		return { mine : creep.getActiveBodyparts(WORK) }
+	}
+	
+	get_desired_population(room)
+	{
+		var tier = room.get_tech_tier()
+		if(tier >= 3)
+			return 2	/// TODO: number of mines
+		return get_mine_spots(room.name)*2
+	}
+	
+	init(creep)
+	{
+		creep.overrideStates({Job : process_mining,  Returning:process_returning})
+	}
+};

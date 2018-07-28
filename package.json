@@ -1,11 +1,25 @@
-{ 
-  "name": "goosebot", 
-  "version": "1.0.0", 
-  "description": "Another screeps bot", 
-  "main": "main.js", 
-  "scripts": { 
-    "start": "node server.js" 
-  }, 
-  "author": "Dmitry Kargin", 
-  "license": "MIT" 
+{
+  "name": "goosebot",
+  "version": "1.0.0",
+  "description": "Another screeps bot",
+  "main": "func_tests.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "mocha --timeout 10000"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "@internal/default": "file:default",
+    "json": "^9.0.6",
+    "lodash": "^4.17.10"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "chai-http": "^2.0.1",
+    "mocha": "^2.4.5"
+  },
+  "author": "Dmitry Kargin",
+  "license": "MIT"
 }
