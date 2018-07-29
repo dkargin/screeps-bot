@@ -68,32 +68,37 @@ global.MineCorp = class extends Corporation
         
         this.mines = []
         
+        var totalMines
         for (let mineId in info.mines)
     	{
         	var mine = info.mines[mineId]
+        	//console.log("\t processing mine id=" + mineId + " :" + JSON.stringify(mine))
         	// Right now we are capable only of E gathering
-        	if (mine.type != 'E')
-        		return;
+        	if (mine.res != 'E')
+        	{
+        	    console.log('skipping mine pos='  + mine.pos + " res=" + mine.res)
+        		continue;
+        	}
         	
         	this.mines.push({
-        		x: mine.x,
-        		y: mine.y,
-        		id: mineId,
+        		pos: [mine.pos[0], mine.pos[1]],
+        		id: mine.id,
         		type: mine.type,
         	})
         	
         	let i = this.mines.length-1;
         	// Allocate specific corporate positions
         	
-        	this.personnel[roleMiner = ROLE_MINER+":"+i] = {
-    			mine: Game.getObjectById(mineId)
+        	this.personnel[ROLE_MINER+":"+i] = {
+    			mine: Game.getObjectById(mine.id),
+    			workPos: mine.spot,
     		}
         	
         	this.personnel[ROLE_ASSISTANT+":"+i] = {
-        		mine: Game.getObjectById(mineId)
+        		mine: Game.getObjectById(mine.id)
         	}
         	
-        	index++;
+        	totalMines++;
     	}
         
         // TODO: Should revisit existing equipment and check if it fits current layout
@@ -137,15 +142,7 @@ global.MineCorp = class extends Corporation
     	var movers_cost = 0
     	return store_cost + road_cost + miner_cost + movers_cost
     }
-    
-    /// Check whether corp has valid storage
-    /*
-    has_storage()
-    {
-        return this.memory.storage
-    }
-    */
-    
+
     /**
      * Set new unload position.
      * Servitors will unload all the resources there
@@ -161,6 +158,42 @@ global.MineCorp = class extends Corporation
     {
         //this.memory.movers = check_alive(this.memory.movers)
         //this.memory.workers = check_alive(this.memory.movers)
+    }
+    
+    // Get body blueprint for a specified position
+    getBlueprint(position)
+    {
+        var tier = this.room.get_tech_tier()
+        if(position.startsWith(ROLE_SCUTTLE))
+        {
+            if(tier >= 3)
+			    return { name: 'SV', body : unpack_recipe({carry:8, move:8}), mem : {role:this.role(), tier: 3 } } 
+    		else if(tier == 2)
+    			return { name: 'SV', body : unpack_recipe({carry:5, move:5}), mem : {role:this.role(), tier: 2 } }	
+    		else
+    		    return { name: 'SV', body : unpack_recipe({carry:3, move:3}), mem : {role:this.role(), tier: 1 } }
+        }
+        else if (position.startsWith(ROLE_STARTER))
+        {
+            return {name: 'SM', body : unpack_recipe({work:2, carry:1, move:1}), mem : {role:this.role(), tier : 1 } }
+        }
+        else    // if (position.startsWith(ROLE_MINER) || position.startsWith(ROLE_ASSISTANT) || ROLE_STARTER)
+        {
+    		if(tier >= 3)
+    			return { name: 'SM', body : unpack_recipe({work:5, carry:2, move:4}), mem: {role:this.role(), tier : 3 } } 
+    		else if(tier == 2)
+    			return { name: 'SM', body : unpack_recipe({work:4, carry:1, move:2}), mem: {role:this.role(), tier: 2 } }	
+    		else
+    			return { name: 'SM', body : unpack_recipe({work:2, carry:1, move:1}), mem: {role:this.role(), tier : 1 } }
+        }
+    }
+    
+    // Calculate current vacancy lists
+    getVacancies()
+    {
+        var result = []
+        
+        return result
     }
     
     total_transfer_rate()
@@ -220,12 +253,12 @@ global.MineCorp = class extends Corporation
     
     update()
     {
+        var name = this.getName()
     	console.log("Corporation " + name + " is working hard")
-        var name = this.corp_name()
-
+    	
         this.checkPersonnel()
 
-        var room = this.get_room()
+        var room = this.getRoom()
 
         for (let worker in this.personnel)
     	{
@@ -234,7 +267,7 @@ global.MineCorp = class extends Corporation
     }
 }
 
-/*
+/**
  * All creep functions get following data:
  * {
  * 	 mine - mine object to be harvested
@@ -290,6 +323,40 @@ MinerStates =
 		}
 	}
 }
+
+
+class CorpMiner extends CreepBase.Behaviour 
+{
+    constructor()
+    {
+        super()    
+    }
+    
+	role()
+	{
+		return 'CorpMiner'
+	}
+	
+	/// Return creep capabilities
+	getCapabilities(creep)
+	{		
+		return { mine : creep.getActiveBodyparts(WORK) }
+	}
+	
+	get_desired_population(room)
+	{
+		var tier = room.get_tech_tier()
+		if(tier >= 3)
+			return 2	/// TODO: number of mines
+		return get_mine_spots(room.name)*2
+	}
+	
+	init(creep)
+	{
+		creep.overrideStates(MinerStates)
+	}
+};
+
 
 // States for starter creep
 StarterStates = {
@@ -361,9 +428,7 @@ StarterStates = {
 	}
 }
 
-
-
-class CorpMiner extends CreepBase.Behaviour 
+class CorpStarter extends CreepBase.Behaviour 
 {
     constructor()
     {
@@ -372,26 +437,9 @@ class CorpMiner extends CreepBase.Behaviour
     
 	role()
 	{
-		return 'CorpMiner'
+		return 'CorpStarter'
 	}
 	
-	spawn(room) 
-	{
-		var tier = room.get_tech_tier()
-		if(tier >= 3)
-			return {
-				name: 'SM', body : unpack_recipe({work:5, carry:2, move:4}), mem : {role:this.role(), tier : 3 }
-			} 
-		else if(tier == 2)
-			return {
-				name: 'SM', body : unpack_recipe({work:4, carry:1, move:2}), mem : { role:this.role(), tier: 2 }
-			}	
-		else
-			return {
-				name: 'SM', body : unpack_recipe({work:2, carry:1, move:1}), mem : {role:this.role(), tier : 1 }
-			}
-	}
-
 	/// Return creep capabilities
 	getCapabilities(creep)
 	{		
@@ -408,6 +456,6 @@ class CorpMiner extends CreepBase.Behaviour
 	
 	init(creep)
 	{
-		creep.overrideStates({Job : process_mining,  Returning:process_returning})
+		creep.overrideStates(StarterStates)
 	}
 };

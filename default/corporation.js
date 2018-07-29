@@ -117,15 +117,33 @@ class Corporation
     }
 
     // Print corp property to console
-    printProperty()
+    printData()
     {
-
+        console.log("Corporation " + this.getName() + " has:")
+        
+        for(let i in this.personnel)
+        {
+            var record = this.personnel[i]
+            console.log("\tpersonnel[" + i + "]=" + JSON.stringify(record))
+        }
+        
+        for(let i in this.property)
+        {
+            var record = this.property[i]
+            console.log("\tproperty[" + i + "]=" + JSON.stringify(record))
+        }
     }
 
     // Get room
     getRoom()
     {
         return Game.rooms[this.memory.room]
+    }
+    
+    // Get headquarter room. Used for providing new creeps and assistance
+    getHQRoom()
+    {
+        return Game.room[this.memory.room]
     }
 
     // Serialize data to persistent memory

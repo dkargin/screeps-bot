@@ -103,7 +103,7 @@ function* init_system()
     require('corp.mine')
     RUtils = require('utils.room')
     //SimpleAI = require('simple.ai')
-    //SimpleAI.init()
+    
     var pid = yield* OS.create_thread(terrain_inspector(), 'terrain_inspector')
     yield* OS.wait({pid: pid})
     
@@ -121,19 +121,17 @@ function* init_system()
         var rdata = get_room_data(r)
         if (rdata)
         {
-            try
-            {
-                var miner = new MineCorp(room, rdata)
-                yield* OS.create_loop(miner.run, "corp/" + miner.getName())
-            }
-            catch(ex)
-            {
-                console.log("Failed to create MineCorp for " + r + " :" + ex)
-            }
+            var miner = new MineCorp(room, rdata)
+            miner.printData()
+            yield* OS.create_loop(()=>miner.update(), "corp/" + miner.getName())
         }
     }
     
-    //yield* OS.create_loop(SimpleAI.run, "main")
+    if (SimpleAI)
+    {
+        SimleAI.init()
+        yield* OS.create_loop(SimpleAI.run, "main")
+    }
     //yield* OS.create_loop(draw_room_data, "room_drawer", {priority:100})
     yield* OS.create_loop(tower_updater, 'towers')
     yield* OS.create_loop(auto_spawn_renew, 'spawn_renew')

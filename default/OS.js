@@ -593,6 +593,7 @@ function spin_thread(thread, tick)
 
 function dump_thread_stats()
 {
+    return;
     for(var p in thread_by_path)
     {
         var thread = thread_by_path[p]
@@ -876,6 +877,8 @@ OS.sleep = function*(ticks=1)
 /// Used in main as initializer for an OS
 function os_default_run(start_method)
 {
+    var startCpu = Game.cpu.getUsed() 
+    var cpuUsed = startCpu
     if(firstTick)
     {
         console.log("<b> ====================== Script has restarted at tick " + Game.time + " =================</b>")
@@ -889,10 +892,10 @@ function os_default_run(start_method)
         create_thread_impl(null, function*()
         {
             yield* OS.wait({pid:boot_pid})
-            OS.log_info("<b> starting memclean thread </b>")
+            OS.log_info("<b>starting memclean thread</b>")
             do
             {
-            	OS.log_info("<b> running memclean thread </b>")
+            	OS.log_debug("running memclean thread")
                 OS.memory_clean();
             }while(yield *OS.finishTick());
             OS.log_fatal("<b>!!! memclean has exited its cycle !!!</b>")
@@ -909,8 +912,7 @@ function os_default_run(start_method)
     
     try
     {
-        var startCpu = Game.cpu.getUsed() 
-        OS.log_info("Running tick " + Game.time + " CPU limit=" + cpu_limit + " CPU used=" + startCpu)
+        
         
         do
         {
@@ -926,25 +928,21 @@ function os_default_run(start_method)
             var currentCpu = Game.cpu.getUsed()
             if (currentCpu > cpu_limit)
             {
-                OS.log_warn("Scheduler has exceded cpu threahold: " + currentCpu + " over " + cpu_limit)
+                OS.log_warn("Scheduler has exceded cpu threshold: " + currentCpu + " over " + cpu_limit)
                 break;
             }
         }while(true)
         
         if (totalThreads == 0)
             OS.log_warn("No threads were scheduled at tick " + Game.time)
-        
-        var used = Game.cpu.getUsed() 
-        if(used > 10)
-        {
-        	OS.log_warn("WARNING: CPU spike=" + used + " detected at tick " + Game.time)
-        }
     }
     catch(ex)
     {
         console.log("EXCEPTION: main loop got exception: " + ex)
         console.log("stack: " + ex.stack)
     }
+    
+    let osResult = true
     
     if (!userThreads || !totalThreads)
 	{
@@ -960,12 +958,15 @@ function os_default_run(start_method)
     	if (threadsAlive == 0)
     	{
     		//console.log("OS is exhaused")
-    		return false;
+    		osResult = false;
     	}
 
 	}
-        
-    return true;
+	
+	cpuUsed = Game.cpu.getUsed()
+    
+    OS.log_info("Completed tick " + Game.time + " CPU limit=" + cpu_limit + " CPU used=" + cpuUsed)
+    return osResult;
 }
 
 module.exports = os_default_run;

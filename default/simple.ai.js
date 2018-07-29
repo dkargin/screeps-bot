@@ -10,7 +10,7 @@ var HoP = require('./spawner')
 /// Simple behaviours from tutorial
 var simpleBehaviours =
 {
-	'simple.miner' : require('./simple.miner'),
+	//'simple.miner' : require('./simple.miner'),
 	'simple.servitor' : require('./simple.servitor'),
 	'simple.builder' : require('./simple.builder'),
 	'simple.upgrader' : require('./simple.upgrader'),
@@ -63,19 +63,10 @@ module.exports.run = function()
 		    var role =  obj.memory.role
 		    var rname = obj.pos.roomName
 		    
-		    //try
+		    if(!obj.spawning)
 		    {
-			    if(!obj.spawning)
-			    {
-			    	simpleBehaviours[role].run(obj, firstTick)
-			    }
-			}/*
-		    catch(ex)
-		    {
-		    	console.log("Failed to call role.run " + role + " err=" + ex)
-		    	throw(ex)
-		    	errors.push(ex)
-		    }*/
+		    	simpleBehaviours[role].run(obj, firstTick)
+		    }
     		
     		population[rname] = population[rname] || {}
 		    
