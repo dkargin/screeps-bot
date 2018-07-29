@@ -119,8 +119,18 @@ function* init_system()
         
         // Spawn mine corporation if room is classified as a town
         var rdata = get_room_data(r)
-        var miner = new MineCorp(room, r)
-        yield* OS.create_loop(miner.run, "corp/" + miner.getName())
+        if (rdata)
+        {
+            try
+            {
+                var miner = new MineCorp(room, rdata)
+                yield* OS.create_loop(miner.run, "corp/" + miner.getName())
+            }
+            catch(ex)
+            {
+                console.log("Failed to create MineCorp for " + r + " :" + ex)
+            }
+        }
     }
     
     //yield* OS.create_loop(SimpleAI.run, "main")

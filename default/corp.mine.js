@@ -63,7 +63,7 @@ global.MineCorp = class extends Corporation
         super("MineCorp", room)
         if (!info)
             throw new Error("Empty info")
-        if (!'mines' in info)
+        if (!('mines' in info))
         	throw new Error("room info has no mines!")
         
         this.mines = []
