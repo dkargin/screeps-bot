@@ -1,4 +1,4 @@
-var CreepBase = require('creepbase')
+var CreepBase = require('./creepbase')
 
 function process_job(creep)
 {

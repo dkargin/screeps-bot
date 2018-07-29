@@ -3,7 +3,7 @@
  *  
  */
 
-var CreepBase = require('creepbase') 
+var CreepBase = require('./creepbase') 
 
 /// Someone wants to take away resources
 /// @pos  

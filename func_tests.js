@@ -1,7 +1,6 @@
 //var Promise = require('promise');
 console.log("Starting tests")
 require('json')
-var http = require('http')
 
 var test_os = require('./test/test_os')
 test_os()
@@ -12,19 +11,19 @@ test_heap()
 function testLogicCompilation()
 {
 	// Testing that all modules can be properly parsed
-	
 	//require('@internal/default')
 	require('@internal/default/corp.mine')
-	return
-	require('./default/utils.room.js')
-	require('./default/corporation.js')
-	require('./default/simple.ai.js')
-	require('./default/spawner.js')
+	require('@internal/default/utils.room.js')
+	require('@internal/default/corporation.js')
+	require('@internal/default/simple.ai.js')
+	require('@internal/default/spawner.js')
+	return true
 }
 
 testLogicCompilation()
 
 /*
+var http = require('http')
 var server = http.createServer(function (req, res) {
   var html = buildHtml(req);
 

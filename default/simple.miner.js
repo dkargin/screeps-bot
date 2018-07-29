@@ -5,7 +5,7 @@
  * Will upgrade its recipe on tier3
  */
 
-var CreepBase = require('creepbase')
+var CreepBase = require('./creepbase')
 
 /** @param {Creep} creep **/
 function process_mining(creep)

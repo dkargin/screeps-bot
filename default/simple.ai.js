@@ -10,10 +10,10 @@ var HoP = require('./spawner')
 /// Simple behaviours from tutorial
 var simpleBehaviours =
 {
-	'simple.miner' : require('simple.miner'),
-	'simple.servitor' : require('simple.servitor'),
-	'simple.builder' : require('simple.builder'),
-	'simple.upgrader' : require('simple.upgrader'),
+	'simple.miner' : require('./simple.miner'),
+	'simple.servitor' : require('./simple.servitor'),
+	'simple.builder' : require('./simple.builder'),
+	'simple.upgrader' : require('./simple.upgrader'),
 }
 
 var firstTick = true

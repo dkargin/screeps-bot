@@ -12,12 +12,13 @@ global.Game.cpu =
 }
 
 global.Creep = class {}
+global.Flag = class {}
 global.Room = class {}
-
 global.Memory = 
 {
 	settings: {os_log_html: false}
 }
 global.Source = class {}
+global.Spawn = class {}
 global.StructureContainer = class {}
 global.RoomPosition = class {}
