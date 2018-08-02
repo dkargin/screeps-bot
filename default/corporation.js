@@ -6,22 +6,44 @@ global.brain = global.brain || {}
 /// Will be used for memory state restoration
 brain.CorporationTypes = brain.CorporationTypes || {}
 
-/// Storage for corporation instances
-/// Maps room name to list of corporations
-brain.corporations = {}
+/**
+ * Storage for corporations. Maps corporation name to a corporation instance
+ */
+var Corporations = {}
 
-/// List room corporations
-Room.prototype.list_corps = function()
+/**
+ * Storage for rooms, that contain corporations
+ * Maps room name to a list of corporations
+ */
+var RoomCorporations = {}
+
+/**
+ * Storage for rooms, that provide spawning/support service for corporations
+ * Maps room name to a list of corporations 
+ */
+var RoomServicedCorporations = {}
+
+/// Get a list of corporations, that are operating in this room
+Room.prototype.getCorporations = function()
 {
     var corps = []
-    for(var c in brain.corporations[this.name])
+    for(var c in RoomCorporations[this.name])
     {
         corps.push(c)
     }
-    console.log("Room " + this.name + " corporations=" + corps)
     return corps
 }
 
+/// Get a list of corporations, that are serviced by this room
+Room.prototype.getRoomServicedCorporations = function()
+{
+    var corps = []
+    for(var c in RoomServicedCorporations[this.name])
+    {
+        corps.push(c)
+    }
+    return corps
+}
 
 function checkAlive(objects)
 {
@@ -75,7 +97,7 @@ class Corporation
         this.restoreFromMem()
         
         /// Register corporation for specific room
-        _.set(brain, ['corporations', name], this)
+        Corporations['name'] = this
     }
     
     restoreFromMem()
@@ -98,9 +120,10 @@ class Corporation
         }
     }
     
+    // Return a copy of a corp's personnel
     getPersonnel()
     {
-        return personnel;
+        return personnel.slice();
     }
     
     // Get current vacant spots
@@ -110,7 +133,10 @@ class Corporation
         var personnel = this.getPersonnel()
         for(var s in personnel)
         {
-            if (isAlive(personnel[s]))
+        	var rec = personnel[s]
+        	if (!rec)
+        		throw new Error("Invalid position " + s + " in corp " + this.getName())
+            if (!rec.id)
                 result.push(s)
         }
         return result
@@ -124,13 +150,13 @@ class Corporation
         for(let i in this.personnel)
         {
             var record = this.personnel[i]
-            console.log("\tpersonnel[" + i + "]=" + JSON.stringify(record))
+            console.log("\tpersonnel[\"" + i + "\"]=" + JSON.stringify(record))
         }
         
         for(let i in this.property)
         {
             var record = this.property[i]
-            console.log("\tproperty[" + i + "]=" + JSON.stringify(record))
+            console.log("\tproperty[\"" + i + "\"]=" + JSON.stringify(record))
         }
     }
 
@@ -144,6 +170,37 @@ class Corporation
     getHQRoom()
     {
         return Game.room[this.memory.room]
+    }
+    
+    // Get all jobs starting with jobName string
+    // @returns {Array} - array of job names
+    getJobs(jobName)
+    {
+    	var result = []
+    	for(var j in this.personnel)
+    	{
+    		if (j.startsWith(jobName))
+    		{
+    			result.push(j);
+    		}
+    	}
+    	return result
+    }
+    
+    // Get unoccupied jobs
+    // @returns {Array} - array of job names
+    getEmptyJobs(jobName)
+    {
+    	var result = {}
+    	for(var j in this.personnel)
+    	{
+    		if (j.startsWith(jobName))
+    		{
+    			var rec = this.personnel[j]
+    			result.push(j) = this.personnel[j]
+    		}
+    	}
+    	return result
     }
 
     // Serialize data to persistent memory
@@ -192,17 +249,37 @@ class Corporation
     {
         
     }
-}
+    
+    // Should check current personnel
+    checkPersonnel()
+    {
+    	
+    }
+    
+    // Regular per-tick update
+    update()
+    {
+        var name = this.getName()
+    	console.log("Corporation " + name + " is working hard")
+    	
+        this.checkPersonnel()
+        
+        var room = this.getRoom()
 
-implant_memory(Corporation.prototype, '_corporations', (obj)=>obj.name)
+        for (let j in this.personnel)
+    	{
+        	var rec = this.personnel[j]
+        	var creep = rec.creep
+        	if (!creep)
+        		continue
+        	var behaviour = creep.getBehaviour()
+        	behaviour.run(creep, this, rec)
+    	}
+    }
+}
 
 global.Corporation = Corporation
 
 module.exports = 
 {
-    /// Add corporation
-    addCorp : function(corp)
-    {
-        
-    },
 };

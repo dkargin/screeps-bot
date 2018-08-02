@@ -89,7 +89,7 @@ module.exports = new class extends CreepBase.Behaviour
 {
     constructor()
     {
-        super()    
+        super()
     }
     
 	role()

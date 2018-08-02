@@ -86,6 +86,29 @@ function auto_spawn_renew()
     }
 }
 
+function processRoomSpawns(rname)
+{
+	var room = Game.rooms[rname]
+	if (!room)
+		return;
+	
+	var spawns = room.getMySpawns()
+	var spawnQueue = room.getSpawnQueue()
+	
+	// Get corporations serviced by this spawns
+	var corps = room.getServicedCorporations()
+	
+	for(var c in corps)
+	{
+		var corp = corps[c]
+		var vacancies = corp.getVacancies()
+	}
+	
+	for (var s in spawns)
+	{
+		
+	}
+}
 // This function will be called on system startup
 // We should register all necessary threads and tasks here.
 // We will not visit this function until next restart.
@@ -97,6 +120,7 @@ function* init_system()
     implant_memory(Source.prototype, '_sources');
     implant_memory(StructureContainer.prototype, '_containers');
     implant_memory(StructureStorage.prototype, '_storages');
+    implant_memory(Corporation.prototype, '_corporations', (obj)=>obj.name)
     implant_cache(Creep.prototype, '_creeps')
     implant_cache(Flag.prototype, '_flags')
     
@@ -135,7 +159,6 @@ function* init_system()
     //yield* OS.create_loop(draw_room_data, "room_drawer", {priority:100})
     yield* OS.create_loop(tower_updater, 'towers')
     yield* OS.create_loop(auto_spawn_renew, 'spawn_renew')
-    
     
     console.log("AI: Init is complete")
 }

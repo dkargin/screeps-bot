@@ -792,14 +792,33 @@ class Wave
     	if (!Number.isInteger(x) || !Number.isInteger(y))
         	throw new Error("Invalid coordinates: x="+x + " y="+y)
     	let maxIter = this.width * this.height
-    	var result = []
+    	var path = []
     	var node = this.getNode(x, y)
     	while(node)
     	{
-    		result.push([node.x, node.y, node.cost])
+    		path.push([node.x, node.y, node.cost])
     		node = node.prev
     	}
-    	return result
+    	return path
+    }
+    
+    getPathCost(x, y)
+    {
+    	if (!Number.isInteger(x) || !Number.isInteger(y))
+        	throw new Error("Invalid coordinates: x="+x + " y="+y)
+    	let maxIter = this.width * this.height
+    	var path = []
+    	var cost = 0
+    	
+    	var node = this.getNode(x, y)
+    	if (node)
+    		cost = node.cost
+    	while(node)
+    	{
+    		path.push([node.x, node.y, node.cost])
+    		node = node.prev
+    	}
+    	return [path, cost]
     }
     
     /**
@@ -993,11 +1012,12 @@ class RoomSpotsCalculator
 			
 			if (best)
 			{
-				var path = wave.getPath(best[0], best[1])
+				var [path, len] = wave.getPathCost(best[0], best[1])
 				info.mines.push({
 					pos: [x, y],
 					res: mine.res,
 					spot: [best[0], best[1]],
+					dist: len,
 					path: path,
 				})
 			}
@@ -1012,10 +1032,11 @@ class RoomSpotsCalculator
 			
 			if (best)
 			{
-				var path = wave.getPath(best[0], best[1])
+				var [path, len] = wave.getPathCost(best[0], best[1])
 				info.controller = {
 					pos: [x, y],
 					spot: [best[0], best[1]],
+					dist: len,
 					path: path,
 				}
 			}

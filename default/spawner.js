@@ -93,23 +93,6 @@ var make_simple_generator = function(name, bp)
     };
 }
 
-Creep.prototype.recycle = function()
-{
-    //this.pos.
-    var targets = this.room.find(FIND_STRUCTURES, {
-        filter: (structure) => {
-            return structure.structureType == STRUCTURE_SPAWN
-        }   
-    });
-    if(targets.length > 0)
-    {
-        if(targets[0].recycleCreep(this) == ERR_NOT_IN_RANGE)
-        {
-            this.moveTo(targets[0])
-        }
-    }
-}
-
 /// `Head of personnel` manager class (yup ss13)
 ///  - Keeps creep spawn queue for specified spawn
 ///  - Checks current population for each recipe and spawns additional creeps if needed

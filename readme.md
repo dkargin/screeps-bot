@@ -1,71 +1,24 @@
-Шахта восстанавливается за 300 тиков. Вместимость шахты 4000/3000/1500. Рука копает 2 за тик
+# JavaScript AI for screeps game #
 
-Значит нужно 4000/(2*300) = 7 рук чтобы полностью скушать шахту
+Another screeps AI
 
-Mover types
+This AI uses "operation system"-like approach to manage thread objects. Threads and interactions with OS are implemented using coroutines and yield.
 
-ticks = 1200 / (600/body_size) = body_size / 2
-total = body_cost / 5
+General status:
 
-Неправильно определяется число текущих юнитов по рецепту + количество в очереди
+ - OS - mostly OK. Waiting for threads or events can be more CPU-conservative.
+ - AI - broken and being reworked
 
+# Project structure #
 
-Goal(Upgrade4)
-	Need (uenergy +200)
+`default` - contains actual AI code
+`docs` - some documentation to read
+`test` - generic standalone tests
+	- `mock_game.js` - provides mock game classes
+	- `test_heap.js` - tests for binary heaps
+	- `test_os.js` - tests for OS
+	 
 
-UpgradeTick
-	Need: (Upgrader((near controller);(energy 50))
-	Occupies: (Upgrader)
-	Provides: (uenergy +50), (Upgrader(near controller))
+`func_tests.js` main script for standalone testing. I do develop a lot of code separately from screeps game.
 
-Build upgrader_mk1
-	Need: Spawn(rez>=300)
-	Occupies: Spawn
-	Provides: Upgrader*(near spawn), Spawn(res-=300)
-
-Build mover_mk1
-	Need: Spawm(res >= 100)
-	Occupies: Spawn
-	Provides: Mover(res = 0), Spawn(res -= 100)
-
-Build mover_mk2
-	Need: Spawm(res >= 300)
-	Occupies: Spawn
-	Provides: Mover(res = 0), Spawn(res -= 300)
-
-Build miner_mk1
-	Spawm(res >= 300)
-	Occupies: Spawn
-	Provides: Mover(res = 0), Spawn(res -= 300)
-
-Move creep (target):
-	Need: creep, ...
-
-Pick rez
-	Need: ...
-	Provides: ...
-
-Dump res
-	Need: ...
-	Provides: ...
-
-Mine res:
-	Need: Creep, 
-	Provides:
-
-# Problems #
-
-1. Harvester MoveTo ordered cases when target is available directly
-2. Mine deployment
-3. Personal management
-4. Renew/retire mechanics
-
-# Survival plan #
-
-1. spawn worker x2
-2. spawn upgrader
-3. spawn worker x2
-Controller 2lvl
-4. Spawn heavy builder
-
-
+Usage: `node func_tests.js`

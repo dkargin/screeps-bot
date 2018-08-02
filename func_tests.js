@@ -106,8 +106,8 @@ function calculateRoomSpots(costmap, spots, width=50, height=50)
 	do
 	{
 		result = process.next();
-		if (result)
-			console.log("Calculator has reached state="+result.value)
+		//if (result)
+		//	console.log("Calculator has reached state="+result.value)
 	}while(result && !result.done)
 	
 	console.log("Calculated layout: ")
@@ -119,6 +119,8 @@ function calculateRoomSpots(costmap, spots, width=50, height=50)
 		console.log("controller=" + JSON.stringify(layout.controller))
 	if ('exits' in layout)
 		console.log("exits=" + JSON.stringify(layout.exits))
+		
+	return layout
 }
 
 
@@ -153,9 +155,37 @@ function testSingleWave(costmap, size, start)
 //testSingleWave(costmap, [50, 50], [23, 42])
 spots = {
 	mines:[
+		{pos:[34, 20], res:'E', id: 1}, 
+		{pos:[30, 21], res:'E', id: 2}
+	],
+	controller:{pos:[23, 42]}
+}
+
+var layout = calculateRoomSpots(costmap, spots)
+
+var room = new Room("X7Y8", 
+{
+	mines: [
 		{pos:[34, 20], res:'E'}, 
 		{pos:[30, 21], res:'E'}
 	],
 	controller:{pos:[23, 42]}
+})
+
+var mineCorp = new MineCorp(room, layout)
+
+var mockRoomTier = 1
+
+Room.prototype.get_tech_tier = function()
+{
+	return mockRoomTier;
 }
-calculateRoomSpots(costmap, spots)
+
+mineCorp.printData()
+
+for (let tier = 0; tier < 4; tier++)
+{
+	mockRoomTier = tier
+	mineCorp.update()
+	console.log("Current vacancies: " + JSON.stringify(mineCorp.getVacancies()))
+}

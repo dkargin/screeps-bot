@@ -309,6 +309,26 @@ class RoomLayout
 		// Room spots that were projected to the grid
 		this.flatSpots = new Grid(50, 50)
 		
+		if (this.room)
+		{
+			var spawns = room.find(FIND_MY_SPAWNS)
+			this.spawns = spawns
+		}
+		
+		if (!'role' in info)
+		{			
+			//console.log("AI Tick " + Game.time + " room " + rname + " pop=" + JSON.stringify(population) + " caps=" + JSON.stringify(room.get_capabilities(true)) + " tier=" + room.get_tech_tier() + " cap="+room.energyCapacityAvailable)	
+			if(spawns.length > 0)
+			{
+				//console.log("No spawns at room " + rname)
+				info.role = ROOM_ROLE_CITY
+			}
+			else
+			{
+				info.role = ROOM_ROLE_UNDECIDED
+			}
+		}
+		
 		this.structures = this.structures || []
 		this.terrain_viz = new RoomVisual(name)
 		this.stat_viz = new RoomVisual(name)
@@ -345,40 +365,6 @@ class RoomLayout
 
 	}
 	
-	/// Calculates room logistics center
-	*calc_logistics_center(info)
-	{
-	    var terrain = info.terrain
-	    
-	    // Returns walking cost for specified tile
-	    var costmap = new Array(50*50)
-	    for(var i = 0; i < 50*50; i++)
-	    {
-	        var tile = terrain[i]
-		    if (tile == 0)
-		        costmap[i] = 1
-		    else if (tile == TERRAIN_SWAMP)
-		        costmap[i] = 5
-		    else costmap[i] = 100
-	    }
-	    
-		// Consider storage to be a center
-		var objs=this.room.find(FIND_STRUCTURES, {filter: { structureType: STRUCTURE_STORAGE }})
-		if(objs.length > 0)
-		{
-			return [objs[0].pos.x, objs[0].pos.y]
-		}
-
-        // Consider spawn to be a center
-		objs = this.room.find(FIND_STRUCTURES, {filter: { structureType: STRUCTURE_SPAWN }})
-		if(objs.length > 0)
-		{
-			return [objs[0].pos.x, objs[0].pos.y]
-		}
-		
-		return [25, 25]
-	}
-
 	/**
 	 * Get RoomPosition of the logistics center
 	 */
@@ -404,8 +390,6 @@ class RoomLayout
 	*map_analyser_thread()
 	{	
 		console.log("Started room " + this.name + " analysis")
-		//var info = this.get_persistent_info()
-		
 		var [terrain, initialSpots] = readTerrain(this.name)
 		this.terrain = terrain
 		this.costmap = terrainToCostmap(terrain, 50, 50)
@@ -418,21 +402,9 @@ class RoomLayout
     	do
     	{
     		result = process.next();
-    		//if (result)
-    		//	console.log("Calculator has reached state="+result.value)
     		yield* OS.break();
     	}while(result && !result.done)
 		
-		//info.center = yield* this.calc_logistics_center(info)
-
-		//this.place_spawn_spots(info)
-		
-		//yield *this.process_mines(info)
-		
-		
-		
-		//this.place_upgrader_spots(info)
-		//yield "Saving memory"
 		//this.save_memory()
 	}
 

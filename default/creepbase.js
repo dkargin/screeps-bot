@@ -211,6 +211,11 @@ function process_job_dummy(creep)
 	console.log(creep.name + " role=" + creep.memory.role + " got default Job jandler")
 }
 
+Creep.prototype.recycle = function()
+{
+	creep.setState('Recycle')
+}
+
 
 /** 
  * Table for all state types. Creeps either add new states here,

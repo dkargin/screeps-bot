@@ -41,7 +41,7 @@ const ROLE_MINER = "Miner"
 // when main is dead for some reason
 const ROLE_ASSISTANT = "Assistant"
 // Scuttle. Moves energy from miner spots to unloading position. Drops energy under main miner
-const ROLE_SCUTTLE = "Scuttle"
+const ROLE_TRUCK = "MTruck"
 // This worker is spawned when room is completely empty and there are no workers
 const ROLE_STARTER = "Starter"
 	
@@ -68,11 +68,20 @@ global.MineCorp = class extends Corporation
         
         this.mines = []
         
+        // Caches for occupied jobs
+        this.assistants = []
+        this.miners = []
+        this.starters = []
+        this.trucks = []
+        
+        var delim = '@'
+        
         var totalMines
+        var totalDist = 0
         for (let mineId in info.mines)
     	{
         	var mine = info.mines[mineId]
-        	//console.log("\t processing mine id=" + mineId + " :" + JSON.stringify(mine))
+        	console.log("\t processing mine id=" + mineId + " :" + JSON.stringify(mine))
         	// Right now we are capable only of E gathering
         	if (mine.res != 'E')
         	{
@@ -89,17 +98,42 @@ global.MineCorp = class extends Corporation
         	let i = this.mines.length-1;
         	// Allocate specific corporate positions
         	
-        	this.personnel[ROLE_MINER+":"+i] = {
+        	this.personnel[ROLE_MINER+delim+i] = {
     			mine: Game.getObjectById(mine.id),
-    			workPos: mine.spot,
+    			work: mine.spot,
     		}
         	
-        	this.personnel[ROLE_ASSISTANT+":"+i] = {
+        	this.personnel[ROLE_ASSISTANT+delim+i] = {
+        		mine: Game.getObjectById(mine.id)
+        	}
+        	
+        	this.personnel[ROLE_STARTER+delim+i] = {
         		mine: Game.getObjectById(mine.id)
         	}
         	
         	totalMines++;
+        	if ('path' in mine)
+        	{
+        		totalDist += mine.path.length
+        	}
+    		else
+			{
+    			throw new Error("Should have precomputed paths")
+			}
     	}
+        
+        if (totalDist > 0)
+        {
+        	var numTrucksMax = _.ceil(totalDist/300)
+        	console.log("Will need " + numTrucksMax + " transports" + " total dist=" + totalDist)
+        	
+        	for(let i = 0; i < numTrucksMax; i++)
+        	{
+        		this.personnel[ROLE_TRUCK+delim+i] = {
+            		mine: Game.getObjectById(mine.id)
+            	}	
+        	}
+        }
         
         // TODO: Should revisit existing equipment and check if it fits current layout
         
@@ -152,12 +186,50 @@ global.MineCorp = class extends Corporation
     {
         /// TODO: implement
     }
-        
+    
     // Check if personnel is alive. Remove personal that is dead
     checkPersonnel()
     {
-        //this.memory.movers = check_alive(this.memory.movers)
-        //this.memory.workers = check_alive(this.memory.movers)
+    	var tier = this.room.get_tech_tier()
+    	
+		var assistants = this.getJobs(ROLE_ASSISTANT)
+		var starters = this.getJobs(ROLE_STARTER)
+		var miners = this.getJobs(ROLE_MINER)
+		var trucks = this.getJobs(ROLE_TRUCK)
+		
+    	if (tier <= 1)
+		{
+    		// Roles here: 
+		}
+    	else if (tier == 2)
+    	{
+    		// Assistants can work here.
+    		// Should reassign all starters to assistant roles
+    	}
+    	else if (tier == 3)
+    	{
+    		
+    	}
+    	else if (tier >= 4)
+    	{
+    		
+    	}
+    	
+    	// Every time we find free mine spot - reassign assistants or starters to this job
+    	if (tier > 1)
+    	{
+    		if (miners.length)
+    		{
+    			
+    		}
+    	}
+    	
+        /*
+         * TODO: Check if we still need any starters
+         *  Need them only tier < 2
+         * TODO: Check if we need any assistants.
+         * 	Need them only till tier3 
+         */
     }
     
     // Get body blueprint for a specified position
@@ -249,21 +321,6 @@ global.MineCorp = class extends Corporation
     findBetterJob(creep)
     {
     	
-    }
-    
-    update()
-    {
-        var name = this.getName()
-    	console.log("Corporation " + name + " is working hard")
-    	
-        this.checkPersonnel()
-
-        var room = this.getRoom()
-
-        for (let worker in this.personnel)
-    	{
-    	
-    	}
     }
 }
 

@@ -38,6 +38,7 @@ function testHeap(type, data, sorted)
 	}
 	
 	console.log("Sorted: " + JSON.stringify(results))
+	// TODO: compare with sorted array & assert
 }
 
 module.exports = function()

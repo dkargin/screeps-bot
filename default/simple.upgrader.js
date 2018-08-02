@@ -29,7 +29,6 @@ class SimpleUpgrader extends CreepBase.Behaviour
     constructor()
     {
         super()
-        console.log("SimpleUpgrader constructor done")
     }
     
 	role()
